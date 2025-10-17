@@ -1,0 +1,73 @@
+'use client';
+import { useEffect, useMemo, useState } from "react";
+
+type A = { id:string; slug?:string|null; title:string; commune:string|null; price:number; photos?:string[]|null; tags?:string[]|null; };
+
+const TAGS = ["plage","nature","famille","rando","snorkel","sunset","cascade"];
+
+export default function AnnoncesExplorer() {
+  const [all, setAll] = useState<A[]>([]);
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/annonces").then(r=>r.json()).then((j)=> setAll(Array.isArray(j.data)? j.data : []));
+  }, []);
+
+  const filtered = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    return all.filter(a => {
+      const okQ = !ql || [a.title, a.commune].filter(Boolean).some(v => String(v).toLowerCase().includes(ql));
+      const okT = sel.length === 0 || (Array.isArray(a.tags) && sel.some(t => a.tags!.includes(t)));
+      return okQ && okT;
+    });
+  }, [all, q, sel]);
+
+  const toggle = (t:string)=> setSel(s => s.includes(t) ? s.filter(x=>x!==t) : [...s, t]);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={q}
+          onChange={e=>setQ(e.target.value)}
+          placeholder="Rechercher (titre, commune)…"
+          className="px-3 py-2 border rounded-2xl"
+        />
+        <div className="flex flex-wrap gap-2">
+          {TAGS.map(t=>(
+            <button
+              key={t}
+              onClick={()=>toggle(t)}
+              className={`px-3 py-1 rounded-full border ${sel.includes(t) ? "bg-amber-500 text-white border-amber-500" : "bg-white"}`}
+            >{t}</button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="p-6 rounded-2xl bg-white border text-gray-600">Aucune annonce ne correspond.</div>
+      ) : (
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {filtered.map(a => {
+            const href = a.slug ? `/a/${a.slug}` : `/annonce/${a.id}`;
+            return (
+              <a key={a.id} href={href} className="block bg-white border rounded-2xl overflow-hidden hover:shadow transition">
+                {Array.isArray(a.photos) && a.photos[0] ? (
+                  <img src={a.photos[0]} alt="" className="w-full h-40 object-cover" />
+                ) : (
+                  <div className="w-full h-40 bg-gray-100" />
+                )}
+                <div className="p-3">
+                  <div className="font-semibold">{a.title}</div>
+                  <div className="text-sm text-gray-600">{a.commune || ""}</div>
+                  <div className="text-sm mt-1">{a.price} € / nuit</div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}

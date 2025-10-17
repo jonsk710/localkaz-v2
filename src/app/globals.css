@@ -2,32 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+/* Reset doux + typographie lisible */
+:root { color-scheme: light; }
+html, body { @apply bg-white text-gray-900; }
+a { @apply text-brand-700 hover:text-brand-900 underline-offset-4 hover:underline; }
+
+/* Cartes */
+.card { @apply bg-white rounded-2xl shadow-soft border border-gray-100; }
+
+/* Onglets */
+.tab {
+  @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm border border-gray-200 bg-white;
+}
+.tab-active {
+  @apply bg-brand-50 border-brand-200 text-brand-800;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
+/* Leaflet */
+@import "leaflet/dist/leaflet.css";
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
+/* Carte plein cadre dans nos cards */
+.map-wrap { @apply card p-0 overflow-hidden; }
+.map-h-70 { height: 70vh; }
