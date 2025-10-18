@@ -12,7 +12,8 @@ function joinCSV(arr?: string[]) { return (arr ?? []).join(", "); }
 function splitCSV(s: string) { return s.split(",").map(x => x.trim()).filter(Boolean); }
 
 export default function EditListingClient() {
-  const { id } = useParams<{ id: string }>();
+  const p = useParams() as { id?: string | string[] };
+  const id = Array.isArray(p.id) ? p.id[0] : (p.id ?? "");
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
