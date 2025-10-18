@@ -5,23 +5,21 @@ import { usePathname } from "next/navigation";
 type Item = { href: string; label: string };
 
 const ITEMS: Item[] = [
-  { href: "/",          label: "Annonces" },
-  { href: "/carte",     label: "Carte" },
-  { href: "/contact",   label: "Contact" },
-  { href: "/host",      label: "Espace Hôte" },
-  { href: "/admin",     label: "Admin" },
+  { href: "/",        label: "Annonces" },
+  { href: "/carte",   label: "Carte" },
+  { href: "/contact", label: "Contact" },
+  { href: "/host",    label: "Espace Hôte" },
+  { href: "/admin",   label: "Admin" },
 ];
 
 export default function MainNav() {
-  const pathname = usePathname();
+  // Sécurise la valeur pour TypeScript (jamais null après ce point)
+  const pathname = usePathname() ?? "";
 
   return (
     <nav className="flex flex-wrap items-center gap-2 text-sm">
       {ITEMS.map((it) => {
-        const active =
-          it.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(it.href);
+        const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
         return (
           <Link
             key={it.href}
