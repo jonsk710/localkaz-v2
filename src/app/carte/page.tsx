@@ -13,16 +13,14 @@ type Listing = {
   lng: number | null;
 };
 
-// Utilise "loadable" à la place de "dynamic" pour éviter le conflit
 const MapView = loadable(() => import("@/components/map/MapView"), { ssr: false });
 
-// Directive Next pour recharger à chaque requête
 export const dynamicParams = true;
 export const revalidate = 0;
 
 export default async function CartePage() {
   const supa = getSupabaseServerPublic();
-  const { data, error } = await supa
+  const { data } = await supa
     .from("listings")
     .select("id,title,description,price,currency,image_url,created_at,lat,lng")
     .eq("is_active", true)

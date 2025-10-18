@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
 import { ensureLeafletIconsPatched } from "./fixLeafletIcons";
 
 type Listing = {
@@ -37,7 +36,12 @@ function FitBounds({ items }: { items: Listing[] }) {
 export default function MapView({ items }: { items: Listing[] }) {
   ensureLeafletIconsPatched();
 
-  // Centre par défaut sur Guadeloupe
+  const [Cluster, setCluster] = useState<any>(null);
+  useEffect(() => {
+    // Import dynamique côté client uniquement
+    import("react-leaflet-cluster").then((m) => setCluster(() => m.default));
+  }, []);
+
   const center: [number, number] = [16.265, -61.551];
   const points = useMemo(
     () => items.filter((x) => typeof x.lat === "number" && typeof x.lng === "number"),
@@ -48,39 +52,54 @@ export default function MapView({ items }: { items: Listing[] }) {
     <div className="map-wrap">
       <MapContainer center={center} zoom={10} scrollWheelZoom className="map-h-70">
         <TileLayer
-          attribution='&copy; OpenStreetMap'
+          attribution="&copy; OpenStreetMap"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitBounds items={points} />
-        <MarkerClusterGroup chunkedLoading maxClusterRadius={40}>
-          {points.map((it) => (
-            <Marker key={it.id} position={[it.lat as number, it.lng as number]}>
-              <Popup>
-                <div style={{ maxWidth: 240 }}>
-                  <div style={{ fontWeight: 700 }}>{it.title}</div>
-                  {it.image_url ? (
-                    <img
-                      src={it.image_url}
-                      alt={it.title}
-                      style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginTop: 6 }}
-                    />
-                  ) : null}
-                  <div style={{ marginTop: 6, fontSize: 12, color: "#444" }}>
-                    {it.description
-                      ? (it.description.length > 120 ? it.description.slice(0, 120) + "…" : it.description)
-                      : "—"}
+        {Cluster ? (
+          <Cluster chunkedLoading maxClusterRadius={40}>
+            {points.map((it) => (
+              <Marker key={it.id} position={[it.lat as number, it.lng as number]}>
+                <Popup>
+                  <div style={{ maxWidth: 240 }}>
+                    <div style={{ fontWeight: 700 }}>{it.title}</div>
+                    {it.image_url ? (
+                      <img
+                        src={it.image_url}
+                        alt={it.title}
+                        style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginTop: 6 }}
+                      />
+                    ) : null}
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#444" }}>
+                      {it.description
+                        ? (it.description.length > 120 ? it.description.slice(0, 120) + "…" : it.description)
+                        : "—"}
+                    </div>
+                    <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <b>{it.price != null ? `${it.price} ${it.currency ?? "EUR"}` : "—"}</b>
+                      <a href={"/?id=" + it.id} style={{ fontSize: 12, textDecoration: "underline" }}>
+                        Voir
+                      </a>
+                    </div>
                   </div>
-                  <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <b>{it.price != null ? `${it.price} ${it.currency ?? "EUR"}` : "—"}</b>
-                    <a href={"/?id=" + it.id} style={{ fontSize: 12, textDecoration: "underline" }}>
-                      Voir
-                    </a>
+                </Popup>
+              </Marker>
+            ))}
+          </Cluster>
+        ) : (
+          // Fallback sans clustering le temps du chargement
+          <>
+            {points.map((it) => (
+              <Marker key={it.id} position={[it.lat as number, it.lng as number]}>
+                <Popup>
+                  <div style={{ maxWidth: 240 }}>
+                    <div style={{ fontWeight: 700 }}>{it.title}</div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MarkerClusterGroup>
+                </Popup>
+              </Marker>
+            ))}
+          </>
+        )}
       </MapContainer>
     </div>
   );
