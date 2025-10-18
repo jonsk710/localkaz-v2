@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import type { LatLngExpression } from "leaflet";
 import { ensureLeafletIconsPatched } from "./fixLeafletIcons";
 
 type Listing = {
@@ -26,7 +27,7 @@ function FitBounds({ items }: { items: Listing[] }) {
     if (pts.length === 1) {
       map.setView(pts[0], 12);
     } else {
-      // @ts-ignore
+      // @ts-ignore fitBounds types ok à l'exécution
       map.fitBounds(pts, { padding: [40, 40] });
     }
   }, [items, map]);
@@ -38,11 +39,13 @@ export default function MapView({ items }: { items: Listing[] }) {
 
   const [Cluster, setCluster] = useState<any>(null);
   useEffect(() => {
-    // Import dynamique côté client uniquement
+    // Import dynamique côté client uniquement (évite SSR)
     import("react-leaflet-cluster").then((m) => setCluster(() => m.default));
   }, []);
 
-  const center: [number, number] = [16.265, -61.551];
+  // Centre typé correctement
+  const initialCenter: LatLngExpression = [16.265, -61.551];
+
   const points = useMemo(
     () => items.filter((x) => typeof x.lat === "number" && typeof x.lng === "number"),
     [items]
@@ -50,7 +53,12 @@ export default function MapView({ items }: { items: Listing[] }) {
 
   return (
     <div className="map-wrap">
-      <MapContainer center={center} zoom={10} scrollWheelZoom className="map-h-70">
+      <MapContainer
+        center={initialCenter}
+        zoom={10}
+        scrollWheelZoom={true}
+        className="map-h-70"
+      >
         <TileLayer
           attribution="&copy; OpenStreetMap"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
