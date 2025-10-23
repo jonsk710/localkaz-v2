@@ -1,235 +1,271 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
+import dynamic from "next/dynamic";
+import { createClient } from "@supabase/supabase-js";
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from "@/lib/env";
+import LocationPickerPlain from "@/components/map/LocationPickerPlain";
+const UploadImage = dynamic(() => import("@/components/upload/UploadImage"), { ssr: false });
 
-type Listing = {
-  id: string;
-  title: string;
-  description: string | null;
-  price: number | null;
-  currency: string | null;
-  lat: number | null;
-  lng: number | null;
-  is_active: boolean;
-  is_approved: boolean;
-  created_at: string;
-  host_id: string | null;
-  image_url?: string | null;
-};
+type SessionUser = { id: string; email?: string | null };
+
+const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});
 
 export default function HostDashboard() {
-  const supabase = getSupabaseBrowserClient();
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // form state
+  // Form fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState<string>("");
   const [currency, setCurrency] = useState("EUR");
-  const [lat, setLat] = useState<string>("");
-  const [lng, setLng] = useState<string>("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [zone, setZone] = useState<{ lat: number; lng: number; radius_m: number } | null>(null);
 
-  // ui state
-  const [items, setItems] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const user = (await supabase.auth.getUser()).data.user;
-      const hostId = user?.id ?? null;
-
-      const { data, error } = await supabase
-        .from("listings")
-        .select("id,title,description,price,currency,lat,lng,is_active,is_approved,created_at,host_id,image_url")
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      // si on veut n'afficher que les annonces de l'hôte, décommente :
-      // const mine = hostId ? (data ?? []).filter(x => x.host_id === hostId) : (data ?? []);
-      const mine = data ?? [];
-      setItems(mine as Listing[]);
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [myListings, setMyListings] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (async () => {
+      setLoading(true);
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      setUser({ id: user.id, email: user.email });
+      setLoading(false);
+      await reloadMine(user.id);
+    })();
   }, []);
 
-  async function onCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("Vous devez être connecté pour créer une annonce.");
+  async function reloadMine(uid: string) {
+    const { data, error } = await supabase
+      .from("listings")
+      .select("id,title,is_active,is_approved,created_at")
+      .eq("host_id", uid)
+      .order("created_at", { ascending: false });
+    if (!error) setMyListings(data ?? []);
+  }
 
-      const payload = {
-        title: title.trim(),
-        description: description.trim() || null,
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+    setSubmitting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const payload: any = {
+        title,
+        description: description || null,
         price: price === "" ? null : Number(price),
-        currency: currency || "EUR",
-        lat: lat === "" ? null : Number(lat),
-        lng: lng === "" ? null : Number(lng),
+        currency,
+        image_url: imageUrl || null,
         host_id: user.id,
         is_active: false,
         is_approved: false,
+        contact_email: contactEmail || null,
       };
+      if (zone) {
+        payload.approx_lat = zone.lat;
+        payload.approx_lng = zone.lng;
+        payload.approx_radius_m = zone.radius_m;
+      }
 
-      // Relax typage Supabase pour éviter le "never" au build
-      const { data, error } = await supabase
-        .from("listings" as any)
-        .insert([payload] as any) // tableau + any => pas d'erreur TS, compatible Supabase
-        .select()
-        .single();
-
+      const { error } = await supabase.from("listings").insert(payload);
       if (error) throw error;
 
-      // reset form & refresh
+      // reset
       setTitle("");
       setDescription("");
       setPrice("");
-      setLat("");
-      setLng("");
-      await load();
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Erreur lors de la création");
+      setCurrency("EUR");
+      setImageUrl("");
+      setContactEmail("");
+      setZone(null);
+
+      await reloadMine(user.id);
+      setNotice("Annonce créée. Elle doit être approuvée par un admin.");
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de l'enregistrement");
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
+  }
+
+  async function deleteListing(id: string, title: string) {
+    if (!user) return;
+    const ok = typeof window !== "undefined"
+      ? window.confirm(`Supprimer définitivement « ${title} » ?\nCette action est irréversible.`)
+      : false;
+    if (!ok) return;
+    setDeletingId(id);
+    setError(null);
+    setNotice(null);
+    try {
+      const { error } = await supabase.from("listings").delete().eq("id", id);
+      if (error) throw error;
+      await reloadMine(user.id);
+      setNotice("Annonce supprimée.");
+    } catch (e: any) {
+      setError(e?.message ?? "Erreur lors de la suppression");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (loading) {
+    return <section><h1 className="text-2xl font-bold">Espace Hôte</h1><p>Chargement…</p></section>;
+  }
+  if (!user) {
+    return (
+      <section className="space-y-2">
+        <h1 className="text-2xl font-bold">Espace Hôte — Connexion requise</h1>
+        <a href="/espace-hote/login" className="underline">Se connecter (Hôte)</a>
+      </section>
+    );
   }
 
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Espace Hôte — Mes annonces</h1>
-        <p className="text-gray-600">Créez et gérez vos annonces. L’admin peut ensuite les approuver.</p>
+        <h1 className="text-2xl font-bold">Espace Hôte</h1>
+        <p className="text-gray-600 text-sm">Publiez une annonce. L’admin l’approuvera avant mise en ligne.</p>
       </header>
 
+      {notice && <p className="text-sm text-green-700">✅ {notice}</p>}
+      {error && <p className="text-sm text-red-700">❌ {error}</p>}
+
       {/* Formulaire création */}
-      <form onSubmit={onCreate} className="card p-4 space-y-3">
-        <div className="grid sm:grid-cols-2 gap-3">
-          <input
-            className="px-3 py-2 rounded-lg border border-gray-200 w-full"
-            placeholder="Titre"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-          <select
-            className="px-3 py-2 rounded-lg border border-gray-200 w-full"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-          >
+      <form onSubmit={onSubmit} className="grid sm:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-gray-200">
+        <div className="sm:col-span-2">
+          <label className="block mb-1 text-sm font-medium text-gray-700">Titre</label>
+          <input className="px-3 py-2 rounded-lg border border-gray-200 w-full"
+            value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Beau T2 proche plage" required />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block mb-1 text-sm font-medium text-gray-700">Description</label>
+          <textarea className="px-3 py-2 rounded-lg border border-gray-200 w-full min-h-[120px]"
+            value={description} onChange={(e)=>setDescription(e.target.value)} placeholder="Votre description…" />
+        </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium text-gray-700">Prix (par nuit)</label>
+          <input className="px-3 py-2 rounded-lg border border-gray-200 w-full"
+            value={price} onChange={(e)=>setPrice(e.target.value)} inputMode="numeric" placeholder="85" />
+        </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium text-gray-700">Devise</label>
+          <select className="px-3 py-2 rounded-lg border border-gray-200 w-full"
+            value={currency} onChange={(e)=>setCurrency(e.target.value)}>
             <option value="EUR">EUR</option>
             <option value="USD">USD</option>
           </select>
-          <input
-            className="px-3 py-2 rounded-lg border border-gray-200 w-full"
-            placeholder="Prix (ex: 85)"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            inputMode="numeric"
-          />
-          <input
-            className="px-3 py-2 rounded-lg border border-gray-200 w-full"
-            placeholder="Latitude (ex: 16.27)"
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-            inputMode="decimal"
-          />
-          <input
-            className="px-3 py-2 rounded-lg border border-gray-200 w-full"
-            placeholder="Longitude (ex: -61.53)"
-            value={lng}
-            onChange={(e) => setLng(e.target.value)}
-            inputMode="decimal"
-          />
-          <textarea
-            className="px-3 py-2 rounded-lg border border-gray-200 w-full sm:col-span-2"
-            placeholder="Description"
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-          >
-            {saving ? "Création…" : "Créer l’annonce"}
+        <div className="sm:col-span-2 space-y-2">
+          <label className="block mb-1 text-sm font-medium text-gray-700">Image (URL)</label>
+          <input className="px-3 py-2 rounded-lg border border-gray-200 w-full"
+            value={imageUrl} onChange={(e)=>setImageUrl(e.target.value)} placeholder="https://…" />
+          <UploadImage onUploaded={(url)=>setImageUrl(url)} label="Ou téléverser un fichier" />
+          {imageUrl && (
+            <img src={imageUrl} alt="Aperçu"
+              className="w-full h-40 object-cover rounded-lg border border-gray-200" />
+          )}
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block mb-1 text-sm font-medium text-gray-700">Email de contact</label>
+          <input className="px-3 py-2 rounded-lg border border-gray-200 w-full"
+            value={contactEmail} onChange={(e)=>setContactEmail(e.target.value)}
+            type="email" placeholder={user.email ?? "hote@exemple.com"} />
+          <p className="text-xs text-gray-500 mt-1">
+            Si vide, l’email de votre compte sera utilisé automatiquement.
+          </p>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block mb-1 text-sm font-medium text-gray-700">Localisation approximative</label>
+          <LocationPickerPlain value={zone} onChange={setZone} />
+        </div>
+
+        <div className="sm:col-span-2">
+          <button disabled={submitting}
+            className="px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50">
+            {submitting ? "Envoi…" : "Publier (en attente d’approbation)"}
           </button>
-          {error && <span className="text-sm text-red-600">{error}</span>}
         </div>
       </form>
 
-      {/* Liste des annonces */}
-      <div className="overflow-x-auto">
-        {loading ? (
-          <div className="text-gray-600">Chargement…</div>
-        ) : !items.length ? (
-          <div className="text-gray-600">Aucune annonce.</div>
+      {/* Mes annonces */}
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Mes annonces</h2>
+        {!myListings.length ? (
+          <p className="text-gray-600 text-sm">Aucune annonce.</p>
         ) : (
-          <table className="w-full border-separate border-spacing-y-2">
-            <thead>
-              <tr className="text-left text-sm text-gray-600">
-                <th className="px-3 py-2">Titre</th>
-                <th className="px-3 py-2">Prix</th>
-                <th className="px-3 py-2">Statut</th>
-                <th className="px-3 py-2">Créé le</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.id} className="bg-white rounded-xl shadow-soft">
-                  <td className="px-3 py-3">
-                    <div className="font-semibold">{it.title}</div>
-                    {it.description && (
-                      <div className="text-sm text-gray-600">
-                        {it.description.length > 140 ? it.description.slice(0, 140) + "…" : it.description}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {it.price != null ? `${it.price} ${it.currency ?? "EUR"}` : "—"}
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs border
-                        ${it.is_approved ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
-                        {it.is_approved ? "Approuvée" : "En attente"}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs border
-                        ${it.is_active ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-rose-50 border-rose-200 text-rose-800"}`}>
-                        {it.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-sm text-gray-700">
-                    {new Date(it.created_at).toLocaleString()}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-sm text-gray-600">
+                  <th className="px-3 py-2">Titre</th>
+                  <th className="px-3 py-2">Statut</th>
+                  <th className="px-3 py-2">Créée le</th>
+                  <th className="px-3 py-2">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {myListings.map((it) => (
+                  <tr key={it.id} className="bg-white">
+                    <td className="px-3 py-3">{it.title}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs border
+                          ${it.is_approved ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+                          {it.is_approved ? "Approuvée" : "En attente"}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs border
+                          ${it.is_active ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-rose-50 border-rose-200 text-rose-800"}`}>
+                          {it.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-sm text-gray-700">
+                      {new Date(it.created_at).toLocaleString()}
+                      <div className="mt-1">
+                        <a className="text-xs underline text-sky-700" href={`/espace-hote/annonces/${it.id}/photos`}>Gérer photos</a>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <button
+                        onClick={() => deleteListing(it.id, it.title)}
+                        disabled={deletingId === it.id}
+                        className="px-2 py-1 rounded-lg border text-xs font-medium"
+                        /* inline pour forcer la couleur, même si un reset met tout blanc */
+                        style={{ backgroundColor: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}
+                        aria-label={`Supprimer ${it.title}`}
+                        title="Supprimer définitivement"
+                      >
+                        {deletingId === it.id ? "Suppression…" : "Supprimer"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </section>
     </section>
   );
 }

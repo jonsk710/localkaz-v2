@@ -1,15 +1,14 @@
-# Node / Next
+# dependencies
 node_modules/
+# next
 .next/
 out/
-dist/
-*.log
-
-# Env (ne pas exposer tes clés)
+# env
 .env
 .env.*
 !.env.example
-
-# OS junk
+.env.local
+# misc
 .DS_Store
-Thumbs.db
+.supabase/
+supabase/.temp/

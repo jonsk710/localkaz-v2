@@ -1,61 +1,27 @@
 "use client";
+import Link from "next/link";
 
-import { FormEvent, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
-
-export default function LoginPage() {
-  const supabase = getSupabaseBrowserClient();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-    // Redirige vers l'admin
-    window.location.href = "/admin";
-  }
-
+export default function LoginChoicePage() {
   return (
-    <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 24 }}>
-      <form onSubmit={onSubmit} style={{ width: 360, maxWidth: "100%", display: "grid", gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700 }}>Connexion</h1>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-          required
-          style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
-        />
-        <input
-          type="password"
-          placeholder="Mot de passe"
-          value={password}
-          onChange={(e)=>setPassword(e.target.value)}
-          required
-          style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", cursor: "pointer" }}
+    <section className="space-y-6 max-w-lg">
+      <h1 className="text-2xl font-bold">Se connecter</h1>
+      <p className="text-gray-600">Choisissez votre type d’accès :</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Link
+          href="/espace-hote/login"
+          className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 p-4 no-underline text-center"
         >
-          {loading ? "Connexion…" : "Se connecter"}
-        </button>
-        {err && <div style={{ color: "#b00020", fontSize: 14 }}>{err}</div>}
-        <p style={{ fontSize: 12, color: "#666" }}>
-          Utilise ton compte admin (role=admin). Tu peux en créer un dans Supabase (Auth &rarr; Users).
-        </p>
-      </form>
-    </main>
+          <div className="text-lg font-semibold">Espace Hôte</div>
+          <div className="text-sm text-gray-600">Publier et gérer mes annonces</div>
+        </Link>
+        <Link
+          href="/admin/login"
+          className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 p-4 no-underline text-center"
+        >
+          <div className="text-lg font-semibold">Admin</div>
+          <div className="text-sm text-gray-600">Gestion et modération</div>
+        </Link>
+      </div>
+    </section>
   );
 }

@@ -1,9 +1,10 @@
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import MainNav from "@/components/ui/MainNav";
 import dynamic from "next/dynamic";
 import type { Metadata } from "next";
 
-const AuthButtons = dynamic(() => import("@/components/auth/AuthButtons"), { ssr: false });
+const HeaderAuth = dynamic(() => import("@/components/auth/HeaderAuth"), { ssr: false });
 
 export const metadata: Metadata = {
   title: "LocalKaz — Locations locales en Guadeloupe",
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </a>
             <div className="flex items-center gap-4">
               <MainNav />
-              <AuthButtons />
+              <HeaderAuth />
             </div>
           </div>
         </header>

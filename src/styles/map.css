@@ -1,0 +1,29 @@
+/* Petit point (via divIcon) */
+.lk-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #1f2937; /* gris-900 */
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.6);
+}
+
+/* Boutons overlay sur la carte */
+.lk-map-controls {
+  position: absolute;
+  z-index: 1000;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  gap: 8px;
+}
+.lk-btn {
+  font-size: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #111827;
+}
+.lk-btn:hover { background: #f9fafb; }
+.lk-btn.active { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }

@@ -1,59 +1,68 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-import Gallery from "@/components/Gallery";
-import AskHostButton from "@/components/AskHostButton";
+import { getSupabaseServerPublic } from "@/lib/supabase/server-public";
+import dynamic from "next/dynamic";
+const ChatStartForm = dynamic(() => import("@/components/chat/ChatStartForm"), { ssr: false });
 
-type Annonce = {
-  id: string; title: string; commune: string | null; price: number;
-  description: string | null; tags: string[] | null; photos: string[] | null;
-  host_name: string | null; is_published: boolean;
-};
+type Props = { params: { id: string } };
+export const revalidate = 0;
 
-async function fetchAnnonce(id: string): Promise<Annonce | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) return null;
-  const s = createClient(url, anon);
-  const { data } = await s
-    .from("annonces")
-    .select("id,title,commune,price,description,tags,photos,host_name,is_published")
+export default async function AnnoncePage({ params }: Props) {
+  const id = params.id;
+  const supa = getSupabaseServerPublic();
+
+  const { data, error } = await supa
+    .from("listings")
+    .select(`
+      id, title, description, price, currency, image_url, created_at,
+      is_active, is_approved, contact_email
+    `)
     .eq("id", id)
+    .limit(1)
     .maybeSingle();
-  const a = (data as any) || null;
-  if (!a || a.is_published !== true) return null;
-  return a;
-}
 
-export default async function Page({ params }: { params: { id: string } }) {
-  const a = await fetchAnnonce(params.id);
-  if (!a) notFound();
+  if (error || !data || !data.is_active || !data.is_approved) notFound();
+
+  const email = data.contact_email || "—";
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <a href="/" className="text-sm underline text-gray-600">← Retour</a>
-      <div className="grid md:grid-cols-5 gap-6">
-        <div className="md:col-span-3">
-          <Gallery photos={(a.photos as any) || []} alt={a.title} />
+    <section className="space-y-4">
+      <a href="/" className="text-sm underline text-gray-600">← Retour aux annonces</a>
+
+      <header className="space-y-2">
+        <h1 className="text-2xl font-bold">{data.title}</h1>
+        <div className="text-gray-600 text-sm">Publiée le {new Date(data.created_at).toLocaleDateString()}</div>
+      </header>
+
+      {data.image_url && (
+        <img
+          src={data.image_url}
+          alt={data.title}
+          className="w-full max-h-[420px] object-cover rounded-xl border border-gray-200"
+        />
+      )}
+
+      <div className="grid sm:grid-cols-3 gap-4">
+        <div className="sm:col-span-2 space-y-3">
+          <div className="text-lg">
+            {data.price != null ? <b>{data.price} {data.currency ?? "EUR"}</b> : "Prix sur demande"}
+          </div>
+
+          <div className="prose prose-sm max-w-none">
+            {data.description ? (
+              <p style={{ whiteSpace: "pre-wrap" }}>{data.description}</p>
+            ) : (
+              <p className="text-gray-600">Pas de description.</p>
+            )}
+          </div>
         </div>
-        <aside className="md:col-span-2 space-y-4">
-          <h1 className="text-2xl font-bold">{a.title}</h1>
-          <div className="text-gray-600">{a.commune ?? "Guadeloupe"}</div>
-          <div className="text-xl font-semibold">{a.price} € / nuit</div>
-          {Array.isArray(a.tags) && a.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {a.tags.map((t) => <span key={t} className="px-2 py-1 rounded-full bg-gray-100 text-sm">{t}</span>)}
-            </div>
-          )}
-          {a.host_name && <div className="text-sm text-gray-600">Hôte : <span className="font-medium">{a.host_name}</span></div>}
-          <AskHostButton annonceId={a.id} />
+
+        <aside className="space-y-3">
+          <div className="space-y-2">
+            <div className="text-sm text-gray-600">Contact direct (info) : {email}</div>
+            <ChatStartForm listingId={data.id} defaultEmail="" />
+          </div>
         </aside>
       </div>
-      {a.description && (
-        <section className="bg-white border rounded-2xl p-4">
-          <h2 className="font-semibold mb-2">Description</h2>
-          <p className="text-gray-700 whitespace-pre-line">{a.description}</p>
-        </section>
-      )}
-    </main>
+    </section>
   );
 }

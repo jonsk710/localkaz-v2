@@ -1,0 +1,16 @@
+/* Curseur “+” (SVG + PNG fallback) appliqué AU CONTENEUR ET À SES ENFANTS,
+   avec !important pour écraser .leaflet-grab / .leaflet-dragging de Leaflet. */
+
+:root {
+  --lk-cursor-plus-svg: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCc+PGNpcmNsZSBjeD0nMTInIGN5PScxMicgcj0nMTEnIGZpbGw9J3doaXRlJyBzdHJva2U9JyMxZjI5MzcnIHN0cm9rZS13aWR0aD0nMicvPjxsaW5lIHgxPScxMicgeTE9JzUnIHgyPScxMicgeTI9JzE5JyBzdHJva2U9JyMxZjI5MzcnIHN0cm9rZS13aWR0aD0nMicvPjxsaW5lIHgxPSc1JyB5MT0nMTInIHgyPScxOScgeTI9JzEyJyBzdHJva2U9JyMxZjI5MzcnIHN0cm9rZS13aWR0aD0nMicvPjwvc3ZnPg==") 12 12;
+  --lk-cursor-plus-png: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAqElEQVRIS+2V0Q2CMBRFn3gVhQq1p5B5gq8L1mHh0mQ5fC5Q2a3C2wU6Wg1oBv1wZ4m9Ck5vGm1cQmJ3k0m2z1Q6y8V3x1Bqg2a2C8nIfyZkq4O2i4kJvT7b0w8g8xP2S3sGQm7Q3w8p8HcJgB61o3o3rS1i1nO1r1fG0w3S6kJg0k3Ck1U8pG2bq8T1r4fFJvF0o3a8h6P6eYd+6UqgR0P3Wg0zvZ+S4g6ykmX9dK9aJ3qH5zQyI5vYwqv9h3s6m7x7dW7GxQv9QmW+oZ9y2g9wAq8Hf8wGgYz9j5vP8B0C7m2tI8AAAAAElFTkSuQmCC") 12 12;
+}
+
+.lk-cursor-plus,
+.lk-cursor-plus .leaflet-container,
+.lk-cursor-plus .leaflet-grab,
+.lk-cursor-plus .leaflet-dragging .leaflet-grab,
+.lk-cursor-plus .leaflet-interactive,
+.lk-cursor-plus *:not(input):not(textarea) {
+  cursor: var(--lk-cursor-plus-svg), var(--lk-cursor-plus-png), crosshair !important;
+}

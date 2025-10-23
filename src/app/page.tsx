@@ -1,84 +1,60 @@
 import { getSupabaseServerPublic } from "@/lib/supabase/server-public";
 
-type Listing = {
-  id: string;
-  title: string;
-  description: string | null;
-  price: number | null;
-  currency: string | null;
-  image_url: string | null;
-  created_at: string;
-  lat: number | null;
-  lng: number | null;
-};
+export const revalidate = 0;
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
+export default async function HomePage() {
   const supa = getSupabaseServerPublic();
-
-  // RLS autorise: is_active=true AND is_approved=true (déjà posées)
   const { data, error } = await supa
     .from("listings")
-    .select("id,title,description,price,currency,image_url,created_at,lat,lng")
+    .select("id,title,description,price,currency,image_url,created_at,is_active,is_approved")
     .eq("is_active", true)
     .eq("is_approved", true)
     .order("created_at", { ascending: false })
-    .limit(24);
+    .limit(50);
 
-  const items = (data ?? []) as Listing[];
+  if (error) {
+    return (
+      <section className="space-y-4">
+        <h1 className="text-2xl font-bold">Annonces</h1>
+        <p className="text-red-600">Erreur: {error.message}</p>
+      </section>
+    );
+  }
+
+  const items = data ?? [];
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Annonces récentes</h1>
-        <p className="text-gray-600">Découvrez les locations publiées sur LocalKaz.</p>
-      </header>
-
+    <section className="space-y-4">
+      <h1 className="text-2xl font-bold">Annonces</h1>
       {!items.length ? (
-        <div className="text-gray-600">
-          Aucune annonce publique pour le moment.
-        </div>
+        <p className="text-gray-600">Aucune annonce pour le moment.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((it) => (
-            <article key={it.id} className="card overflow-hidden">
-              <div className="aspect-[16/10] bg-gray-100">
-                {it.image_url ? (
-                  // image basique sans next/image pour aller vite
+            <li key={it.id}>
+              <a
+                href={`/annonce/${it.id}`}
+                className="block bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-shadow"
+                aria-label={`Voir l'annonce ${it.title}`}
+              >
+                {it.image_url && (
                   <img
                     src={it.image_url}
                     alt={it.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    className="w-full h-36 object-cover rounded-lg mb-2"
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
-                    Pas d’image
-                  </div>
                 )}
-              </div>
-              <div className="p-4 space-y-2">
-                <h2 className="font-semibold">{it.title}</h2>
-                {it.description && (
-                  <p className="text-sm text-gray-600">
-                    {it.description.length > 120
-                      ? it.description.slice(0, 120) + "…"
-                      : it.description}
-                  </p>
-                )}
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">
-                    {it.price != null ? `${it.price} ${it.currency ?? "EUR"}` : "—"}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {new Date(it.created_at).toLocaleDateString()}
-                  </div>
+                <div className="font-semibold">{it.title}</div>
+                <div className="text-sm text-gray-600">
+                  {it.description ? (it.description.length > 120 ? it.description.slice(0, 120) + "…" : it.description) : "—"}
                 </div>
-              </div>
-            </article>
+                <div className="mt-2 text-sm">
+                  {it.price != null ? <b>{it.price} {it.currency ?? "EUR"}</b> : "Prix sur demande"}
+                </div>
+              </a>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </section>
   );
