@@ -24,3 +24,15 @@ a { @apply text-brand-700 hover:text-brand-900 underline-offset-4 hover:underlin
 /* Carte plein cadre dans nos cards */
 .map-wrap { @apply card p-0 overflow-hidden; }
 .map-h-70 { height: 70vh; }
+
+/* === Map: hide native cursor, we draw "+" ourselves === */
+.map-cursor-plus .leaflet-container,
+.map-cursor-plus .leaflet-container * {
+  cursor: none !important;
+}
+
+/* Map: curseur “+” personnalisé (écrase tout cursor précédent) */
+.map-cursor-plus .leaflet-container,
+.map-cursor-plus .leaflet-container * {
+  cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGxpbmUgeDE9IjEyIiB5MT0iNCIgeDI9IjEyIiB5Mj0iMjAiIHN0cm9rZT0iIzExMSIgc3Ryb2tlLXdpZHRoPSIyIi8+PGxpbmUgeDE9IjQiIHkxPSIxMiIgeDI9IjIwIiB5Mj0iMTIiIHN0cm9rZT0iIzExMSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+") 12 12, crosshair !important;
+}

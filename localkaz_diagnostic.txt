@@ -1,0 +1,93 @@
+=== System ===
+node: v20.19.5
+npm: 10.8.2
+next: 14.2.5
+
+=== Env keys presence (.env.local) ===
+OK  NEXT_PUBLIC_SUPABASE_URL present
+OK  NEXT_PUBLIC_SUPABASE_ANON_KEY present
+MISS NEXT_PUBLIC_CONTACT_EMAIL missing
+MISS NEXT_PUBLIC_SITE_URL missing
+
+=== App routes (page.tsx) ===
+src/app/403/page.tsx
+src/app/a/[slug]/page.tsx
+src/app/a/annonces/page.tsx
+src/app/admin/annonces/page.tsx
+src/app/admin/communes/page.tsx
+src/app/admin/contenu/page.tsx
+src/app/admin/login/page.tsx
+src/app/admin/page.tsx
+src/app/aide/page.tsx
+src/app/annonce/[id]/page.tsx
+src/app/annonce/page.tsx
+src/app/annonces/page.tsx
+src/app/carte/page.tsx
+src/app/chat/[token]/page.tsx
+src/app/contact/page.tsx
+src/app/debug/page.tsx
+src/app/decouvrir/page.tsx
+src/app/espace-hote/annonces/[id]/edit/page.tsx
+src/app/espace-hote/annonces/page.tsx
+src/app/espace-hote/login/page.tsx
+src/app/espace-hote/messages/[id]/page.tsx
+src/app/espace-hote/messages/page.tsx
+src/app/espace-hote/nouvelle/page.tsx
+src/app/espace-hote/page.tsx
+src/app/host/page.tsx
+src/app/logement/[id]/page.tsx
+src/app/login/page.tsx
+src/app/page.tsx
+src/app/z-test/page.tsx
+
+=== Critical files presence ===
+OK  src/components/map/LocationPickerPlain.tsx (     178 lines)
+OK  src/components/search/SearchFilters.tsx (      85 lines)
+OK  src/components/host/HostDashboard.tsx (     271 lines)
+OK  src/app/annonce/[id]/page.tsx (      68 lines)
+OK  src/components/inquiry/ContactForm.tsx (     109 lines)
+OK  src/components/admin/AdminTable.tsx (     197 lines)
+OK  src/app/admin/page.tsx (      24 lines)
+OK  src/app/admin/layout.tsx (      34 lines)
+OK  src/app/espace-hote/page.tsx (       7 lines)
+MISS src/app/espace-hote/layout.tsx
+OK  src/app/api/chat/start/route.ts (      76 lines)
+
+=== Map cursor CSS hook present? ===
+MISS map-cursor-plus class in map component
+MISS map-cursor-plus CSS in globals.css
+OK globals.css imported in app/layout.tsx
+
+=== Double logout buttons (admin) ? ===
+src/app/admin/layout.tsx:15:        <form action="/api/admin/logout" method="post">
+src/app/admin/layout.tsx:16:          <button className="text-sm border rounded px-2 py-1">Se déconnecter</button>
+
+=== Git status (short) ===
+## reprise-2025-10-25
+ M next-env.d.ts
+ D package-lock.json
+ M package.json
+MM src/app/page.tsx
+ M src/app/robots.ts
+ M src/app/sitemap.ts
+ M src/components/map/MapView.tsx
+?? localkaz_diagnostic.txt
+?? pnpm-lock.yaml
+?? src/app/opengraph-image.tsx
+?? src/app/page.tsx.bak.1761490141
+?? src/components/favs/
+?? src/components/listing/
+?? src/components/map/MapView.tsx.bak.1761434595
+?? src/components/map/MapView.tsx.bak.1761434753
+?? src/components/search/
+?? src/types/listingcard-override.d.ts
+ next-env.d.ts                  |    1 -
+ package-lock.json              | 6471 ----------------------------------------
+ package.json                   |    3 +-
+ src/app/page.tsx               |    5 +-
+ src/app/robots.ts              |    7 +-
+ src/app/sitemap.ts             |   52 +-
+ src/components/map/MapView.tsx |    6 +-
+ 7 files changed, 38 insertions(+), 6507 deletions(-)
+
+=== Done ===

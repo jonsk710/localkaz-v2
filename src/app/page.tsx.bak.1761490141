@@ -1,0 +1,161 @@
+import { getSupabaseServerPublic } from "@/lib/supabase/server-public";
+import dynamic from "next/dynamic";
+import ListingCard from "@/components/listing/ListingCard";
+
+export const revalidate = 0;
+
+type Props = { searchParams?: {
+  q?: string; pmin?: string; pmax?: string;
+  lat?: string; lng?: string; rkm?: string;
+  sort?: string; page?: string;
+  start?: string; end?: string;
+} };
+
+const SearchFilters = dynamic(() => import("@/components/search/SearchFilters"), { ssr: false });
+const FavLinkClient = dynamic(() => import("@/components/favs/FavLink"), { ssr: false });
+const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
+
+function clampNum(n: any, min: number, max: number, def: number) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return def;
+  return Math.min(max, Math.max(min, v));
+}
+
+export default async function HomePage({ searchParams = {} }: Props) {
+  const supa = getSupabaseServerPublic();
+
+  const q = (searchParams.q ?? "").trim();
+  const pmin = searchParams.pmin ? Number(searchParams.pmin) : null;
+  const pmax = searchParams.pmax ? Number(searchParams.pmax) : null;
+  const lat = searchParams.lat ? Number(searchParams.lat) : null;
+  const lng = searchParams.lng ? Number(searchParams.lng) : null;
+  const rkm = searchParams.rkm ? clampNum(searchParams.rkm, 1, 10, 5) : null;
+  const sort = searchParams.sort ?? "recent";
+  const start = searchParams.start || null;
+  const end = searchParams.end || null;
+
+  const pageSize = 24;
+  const page = clampNum(searchParams.page ?? "1", 1, 500, 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  // 1) Si dates fournies, récupère les IDs dispo via RPC
+  let allowedIds: string[] | null = null;
+  if (start && end) {
+    const { data: ids } = await supa.rpc("listings_available", {
+      p_start: start, p_end: end, p_limit: 500
+    });
+    allowedIds = (ids ?? []).map((r: any) => r.id);
+  }
+
+  // 2) Requête listings (actifs + approuvés), filtrée par dates/texte/prix/zone
+  let query = supa
+    .from("listings")
+    .select("id,title,description,price,currency,image_url,created_at,is_active,is_approved,approx_lat,approx_lng", { count: "exact" })
+    .eq("is_active", true)
+    .eq("is_approved", true);
+
+  if (allowedIds) query = query.in("id", allowedIds as any);
+
+  if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+  if (pmin != null && Number.isFinite(pmin)) query = query.gte("price", pmin);
+  if (pmax != null && Number.isFinite(pmax)) query = query.lte("price", pmax);
+
+  if (lat != null && lng != null && rkm != null) {
+    const dLat = rkm / 111;
+    const dLng = rkm / (111 * Math.cos((lat * Math.PI) / 180) || 1);
+    query = query
+      .gte("approx_lat", lat - dLat).lte("approx_lat", lat + dLat)
+      .gte("approx_lng", lng - dLng).lte("approx_lng", lng + dLng);
+  }
+
+  if (sort === "price_asc") query = query.order("price", { ascending: true, nullsFirst: false });
+  else if (sort === "price_desc") query = query.order("price", { ascending: false, nullsFirst: true });
+  else query = query.order("created_at", { ascending: false });
+
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    return (
+      <section className="space-y-4">
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Annonces</h1>
+          <div suppressHydrationWarning><FavLinkClient /></div>
+        </header>
+        <p className="text-red-600">Erreur: {error.message}</p>
+        <SearchFilters />
+      </section>
+    );
+  }
+
+  const items = data ?? [];
+  const total = count ?? items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasFilters = !!(q || pmin || pmax || (lat!=null && lng!=null && rkm!=null) || (start && end));
+
+  const buildPageHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (q) sp.set("q", q);
+    if (pmin!=null) sp.set("pmin", String(pmin));
+    if (pmax!=null) sp.set("pmax", String(pmax));
+    if (lat!=null && lng!=null && rkm!=null) { sp.set("lat", String(lat)); sp.set("lng", String(lng)); sp.set("rkm", String(rkm)); }
+    if (start) sp.set("start", start);
+    if (end) sp.set("end", end);
+    if (sort) sp.set("sort", sort);
+    sp.set("page", String(p));
+    return `/?${sp.toString()}`;
+  };
+
+  return (
+    <section className="space-y-4">
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Annonces</h1>
+        <div suppressHydrationWarning><FavLinkClient /></div>
+      </header>
+
+      <SearchFilters />
+
+      {hasFilters && (
+        <div className="text-sm text-gray-600">
+          Filtres appliqués
+          {q && <> · “{q}”</>}
+          {pmin!=null && <> · min {pmin}€</>}
+          {pmax!=null && <> · max {pmax}€</>}
+          {(start && end) && <> · {start} → {end}</>}
+          {lat!=null && lng!=null && rkm!=null && <> · {rkm} km autour ({lat?.toFixed?.(3)},{lng?.toFixed?.(3)})</>}
+          {" "}— <a className="underline" href="/">Tout effacer</a>
+        </div>
+      )}
+
+      {/* Grille des cartes (peut être vide) */}
+      {items.length ? (
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((it) => (
+            <li key={it.id}><ListingCard listing={it as any} /></li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-600">Aucune annonce{(start&&end) ? " disponible pour ces dates" : ""}.</p>
+      )}
+
+      {/* Carte TOUJOURS visible (même si 0 résultats) */}
+      <div className="mt-4">
+        <div className="h-[420px] sm:h-[560px] rounded-xl border border-gray-200 overflow-hidden">
+          <MapView items={items as any} />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <nav className="flex items-center gap-2 mt-4">
+          <a className="px-2 py-1 rounded border border-gray-200 bg-white disabled:opacity-50"
+             href={buildPageHref(Math.max(1, page-1))} aria-disabled={page<=1}>← Préc.</a>
+          <span className="text-sm text-gray-600">Page {page} / {totalPages}</span>
+          <a className="px-2 py-1 rounded border border-gray-200 bg-white disabled:opacity-50"
+             href={buildPageHref(Math.min(totalPages, page+1))} aria-disabled={page>=totalPages}>Suiv. →</a>
+        </nav>
+      )}
+    </section>
+  );
+}
