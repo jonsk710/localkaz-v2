@@ -1,69 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STAMP="$(date +%Y%m%d-%H%M%S)"
-BACK="backups/$STAMP"
-mkdir -p "$BACK"
+TS="$(date +%Y%m%d-%H%M%S)"
+OUT="backups/$TS"
+mkdir -p "$OUT"
 
-echo "=== 1) Git snapshot ==="
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  BR="snapshot-$STAMP"
-  git add -A
-  git commit -m "snapshot: $STAMP" || true
-  git branch "$BR" 2>/dev/null || true
-  git tag -f "snapshot-$STAMP" >/dev/null 2>&1 || true
-  echo "Git branch/tag: $BR / snapshot-$STAMP"
-else
-  echo "⚠ Pas de repo git ici (ok, on continue quand même)."
+# --- Construire SUPABASE_DB_URL si absent ---
+if [[ -z "${SUPABASE_DB_URL:-}" ]]; then
+  # Charger .env.local pour NEXT_PUBLIC_SUPABASE_URL
+  set +u
+  [[ -f .env.local ]] && set -a && . ./.env.local && set +a
+  set -u
+
+  if [[ -z "${NEXT_PUBLIC_SUPABASE_URL:-}" ]]; then
+    echo "❌ NEXT_PUBLIC_SUPABASE_URL introuvable. Ajoute-le dans .env.local" | tee "$OUT/README_DB.txt"
+    exit 1
+  fi
+
+  # Project ref → host DB
+  REF="$(node -p "new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host.split('.')[0]")"
+  HOST="db.${REF}.supabase.co"
+
+  # Si .co ne résout pas, bascule en .net (rare)
+  if command -v dig >/dev/null 2>&1; then
+    dig +short "$HOST" @1.1.1.1 | grep -q . || HOST="db.${REF}.supabase.net"
+  elif command -v nslookup >/dev/null 2>&1; then
+    nslookup "$HOST" 1.1.1.1 >/dev/null 2>&1 || HOST="db.${REF}.supabase.net"
+  fi
+
+  # Mot de passe : prend PGPASSWORD si défini, sinon "Jonquille1"
+  PW="${PGPASSWORD:-Jonquille1}"
+
+  export SUPABASE_DB_URL="postgresql://postgres:${PW}@${HOST}:5432/postgres?sslmode=require"
 fi
 
-echo
-echo "=== 2) Env & diagnostic ==="
-[ -f .env.local ] && cp .env.local "$BACK/.env.local.bak" || echo "⚠ .env.local introuvable (ok)"
-if [ -x scripts/localkaz_doctor.sh ]; then
-  scripts/localkaz_doctor.sh > "$BACK/doctor.txt" 2>&1 || true
-fi
-git status -sb > "$BACK/git-status.txt" 2>/dev/null || true
+echo "➡️  Using SUPABASE_DB_URL=${SUPABASE_DB_URL}"
 
-echo
-echo "=== 3) Dump BDD (si SUPABASE_DB_URL présent) ==="
-if [ -n "${SUPABASE_DB_URL:-}" ]; then
-  # Dump binaire (restaurable avec pg_restore)
-  pg_dump "$SUPABASE_DB_URL" -Fc -f "$BACK/db.dump"
-  # Schéma complet (lecture)
-  pg_dump "$SUPABASE_DB_URL" -s -f "$BACK/schema.sql"
-  # Données utiles (tables clés)
-  pg_dump "$SUPABASE_DB_URL" -a \
-    -t public.listings \
-    -t public.listing_photos \
-    -t public.conversations \
-    -t public.messages \
-    -t public.favorites \
-    -t public.admins \
-    -t storage.objects \
-    -f "$BACK/data.sql"
-  echo "→ Dumps écrits dans $BACK/"
-else
-  cat > "$BACK/README_DB.txt" <<'TXT'
-SUPABASE_DB_URL est vide dans le shell. Deux options :
+# --- Test connexion ---
+psql "$SUPABASE_DB_URL" -c "select current_user, current_database(), now();" > "$OUT/test-psql.txt"
 
-A) Depuis Supabase > SQL Editor :
-   - Exécuter:  SELECT now();
-   - Ou exporter via "Backups" / "Connection string" (selon ton plan).
+# --- Dump BDD (format compressé) ---
+pg_dump -d "$SUPABASE_DB_URL" -Fc -f "$OUT/db.dump"
 
-B) En terminal, définis la chaîne de connexion psql, ex. :
-   export SUPABASE_DB_URL='postgresql://postgres:***@db.XXX.supabase.co:5432/postgres?sslmode=require'
-   Puis relance: scripts/backup_all.sh
-TXT
-  echo "⚠ SUPABASE_DB_URL est vide — README_DB.txt créé avec les instructions."
-fi
+# --- Snapshot du projet (sans node_modules/.next/backups) ---
+tar -czf "$OUT/project-snapshot.tgz" --exclude node_modules --exclude .next --exclude backups .
 
-echo
-echo "=== 4) Snapshot du projet (sans node_modules/.next/backups) ==="
-tar --exclude=node_modules --exclude=.next --exclude=backups -czf "$BACK/project-snapshot.tgz" .
-echo "→ Archive : $BACK/project-snapshot.tgz"
+# --- Git status si repo ---
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 && {
+  git status -sb > "$OUT/git-status.txt" || true
+}
 
-echo
-echo "=== 5) Récapitulatif ==="
-ls -lh "$BACK"
-echo "OK. Sauvegarde complète dans: $BACK"
+echo "✅ Backup OK → $OUT"

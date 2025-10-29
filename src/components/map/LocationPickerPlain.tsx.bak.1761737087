@@ -99,7 +99,7 @@ export default function LocationPickerPlain({
         {/* Cercle (en mètres) */}
         <MetersCircle
           center={[zone.lat, zone.lng]}
-          radius={Math.round(radiusKm*1000)}
+          radius={clampRadius(zone.radius_m)}
           options={{ color: "#2563eb", weight: 1, fillColor: "#3b82f6", fillOpacity: 0.1 }}
         />
       </MapContainer>

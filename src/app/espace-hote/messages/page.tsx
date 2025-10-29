@@ -1,77 +1,98 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from "@/lib/env";
 
-export default function HostMessagesList() {
-  const [rows, setRows] = useState<any[]>([]);
+const supa = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});
+
+type Row = {
+  id: string;
+  listing_id: string | null;
+  created_at: string;
+  last_message_at: string | null;
+  listings?: { title?: string | null } | null;
+};
+
+export default function HostMessagesPage() {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const url  = (process.env.NEXT_PUBLIC_SUPABASE_URL as string) || "";
-  const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) || "";
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true); setErr(null);
-      try {
-        if (!url || !anon) throw new Error("NEXT_PUBLIC_SUPABASE_URL / ANON manquants");
-        const supa = createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true } });
-
-        const { data: { user }, error: uerr } = await supa.auth.getUser();
-        if (uerr) throw new Error("auth.getUser: " + uerr.message);
-        if (!user) { setRows([]); return; }
-
-        const { data, error } = await supa.rpc("host_conversations_overview");
-        if (error) throw new Error(error.message);
-        setRows((data as any[]) || []);
-      } catch (e:any) {
-        setErr(e.message || String(e));
-      } finally {
+  async function load() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const { data: { user }, error } = await supa.auth.getUser();
+      if (error) throw error;
+      if (!user) {
+        setUserId(null);
+        setItems([]);
+        setErr("Connexion requise");
         setLoading(false);
+        return;
       }
-    })();
-  }, []);
+      setUserId(user.id);
+
+      const { data, error: qerr } = await supa
+        .from("conversations")
+        .select("id, listing_id, created_at, last_message_at, listings(title)")
+        .eq("host_id", user.id)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (qerr) throw qerr;
+      setItems((data || []) as Row[]);
+    } catch (e: any) {
+      setErr(e?.message || "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <section><h1 className="text-2xl font-bold">Mes messages</h1><p>Chargement…</p></section>;
+
+  if (err && !userId) {
+    return (
+      <section className="space-y-2">
+        <h1 className="text-2xl font-bold">Mes messages</h1>
+        <p className="text-red-600">{err}</p>
+        <a href="/espace-hote/login" className="underline text-sm">Se connecter (Hôte)</a>
+      </section>
+    );
+  }
 
   return (
-    <main style={{padding:20,fontFamily:"system-ui"}}>
-      <h1 style={{fontSize:24,fontWeight:700}}>Mes messages</h1>
-      {loading && <p>Chargement…</p>}
-      {err && <p style={{color:"#b91c1c"}}>❌ {err}</p>}
-      {!loading && !err && rows.length === 0 && <p>Aucune conversation.</p>}
-      <ul style={{display:"grid",gap:8}}>
-        {rows.map((c) => (
-          <li key={c.id} style={{border:"1px solid #e5e7eb",borderRadius:12,padding:12,background:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
-                <span>{c.title || c.listing_id}</span>
-                {c.unread_count > 0 && (
-                  <span
-                    style={{
-                      display:"inline-flex",
-                      alignItems:"center",
-                      justifyContent:"center",
-                      minWidth:18,
-                      height:18,
-                      padding:"0 6px",
-                      borderRadius:9999,
-                      background:"#ef4444",
-                      color:"#fff",
-                      fontSize:12,
-                      lineHeight:"18px",
-                    }}
-                  >
-                    {c.unread_count}
-                  </span>
-                )}
+    <section className="space-y-3">
+      <h1 className="text-2xl font-bold">Mes messages</h1>
+      {!items.length ? (
+        <p className="text-gray-600 text-sm">Aucune conversation pour le moment.</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((c) => (
+            <li key={c.id} className="bg-white border border-gray-200 rounded-xl p-3">
+              <div className="font-semibold">{c.listings?.title || c.listing_id || "Annonce"}</div>
+              <div className="text-xs text-gray-600">
+                Dernière activité : {new Date(c.last_message_at || c.created_at).toLocaleString()}
               </div>
-              <div style={{fontSize:12,color:"#555"}}>
-                Dernière activité : {c.last_message_at ? new Date(c.last_message_at).toLocaleString() : "—"}
+              <div className="mt-2">
+                <a
+                  href={`/espace-hote/messages/${c.id}`}
+                  className="text-sm underline"
+                >
+                  Ouvrir la conversation →
+                </a>
               </div>
-            </div>
-            <a href={`/espace-hote/messages/${c.id}`} style={{fontSize:13,textDecoration:"underline"}}>Ouvrir →</a>
-          </li>
-        ))}
-      </ul>
-    </main>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

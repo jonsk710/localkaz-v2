@@ -57,7 +57,6 @@ function ClickBinder({ onPick }: { onPick: (lat: number, lng: number) => void })
 }
 
 export default function LocationPickerPlain({
-  // Rayon de la zone (km)
   value,
   onChange,
   zoomBias = 0, // ex: -2 pour dézoomer
@@ -66,9 +65,6 @@ export default function LocationPickerPlain({
   onChange: (z: Zone) => void;
   zoomBias?: number;
 }) {
-  // Rayon de la zone (km)
-  const [radiusKm, setRadiusKm] = useState(3);
-
   const zone = useMemo<Zone>(() => {
     if (!value) return { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1], radius_m: 8000 };
     return { lat: value.lat, lng: value.lng, radius_m: clampRadius(value.radius_m) };
@@ -99,7 +95,7 @@ export default function LocationPickerPlain({
         {/* Cercle (en mètres) */}
         <MetersCircle
           center={[zone.lat, zone.lng]}
-          radius={Math.round(radiusKm*1000)}
+          radius={clampRadius(zone.radius_m)}
           options={{ color: "#2563eb", weight: 1, fillColor: "#3b82f6", fillOpacity: 0.1 }}
         />
       </MapContainer>

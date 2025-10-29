@@ -36,3 +36,8 @@ a { @apply text-brand-700 hover:text-brand-900 underline-offset-4 hover:underlin
 .map-cursor-plus .leaflet-container * {
   cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGxpbmUgeDE9IjEyIiB5MT0iNCIgeDI9IjEyIiB5Mj0iMjAiIHN0cm9rZT0iIzExMSIgc3Ryb2tlLXdpZHRoPSIyIi8+PGxpbmUgeDE9IjQiIHkxPSIxMiIgeDI9IjIwIiB5Mj0iMTIiIHN0cm9rZT0iIzExMSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+") 12 12, crosshair !important;
 }
+
+/* Leaflet map sizing helper */
+.map-fixed-320{height:320px}
+@media (min-width:640px){.map-fixed-320{height:360px}}
+@media (min-width:1024px){.map-fixed-320{height:420px}}

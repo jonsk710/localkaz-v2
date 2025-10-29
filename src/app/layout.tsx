@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 const HeaderAuth = dynamic(() => import("@/components/auth/HeaderAuth"), { ssr: false });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'),
   title: "LocalKaz — Locations locales en Guadeloupe",
   description: "Trouvez ou publiez facilement des locations locales en Guadeloupe avec LocalKaz.",
 };
