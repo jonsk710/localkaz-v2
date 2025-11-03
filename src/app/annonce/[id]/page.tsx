@@ -1,3 +1,4 @@
+import CalendarForRoute from "@/components/calendar/CalendarForRoute";
 import { notFound } from "next/navigation";
 import { getSupabaseServerPublic } from "@/lib/supabase/server-public";
 import dynamic from "next/dynamic";
@@ -66,3 +67,6 @@ export default async function AnnoncePage({ params }: Props) {
     </section>
   );
 }
+
+{/* Calendrier des disponibilités */}
+<CalendarForRoute />
