@@ -1,0 +1,10 @@
+export const revalidate = 0;
+import dynamic from "next/dynamic";
+const AdminDashboard = dynamic(() => import("@/components/admin/AdminDashboard"), { ssr: false });
+export default function AdminPage(){
+  return (
+    <main className="max-w-7xl mx-auto px-4 py-8">
+      <AdminDashboard />
+    </main>
+  );
+}

@@ -1,3 +1,4 @@
+import GuardHost from "@/components/auth/GuardHost";
 "use client";
 
 import { useEffect, useState } from "react";

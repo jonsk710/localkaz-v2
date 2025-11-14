@@ -31,6 +31,7 @@ export default function MainNav() {
           </Link>
         );
       })}
-    </nav>
+    <a className="inline-flex items-center rounded-full px-3 py-1.5 border bg-white border-gray-200 text-gray-700 hover:bg-gray-100" href="/login">Se connecter</a>
+</nav>
   );
 }

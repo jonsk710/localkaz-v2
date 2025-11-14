@@ -1,57 +1,63 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase-browser';
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
-function parseCSV(input: string): string[] {
-  return (input || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function NewListingClient() {
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState<number | ''>('');
-  const [commune, setCommune] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState('');
-  const [photos, setPhotos] = useState('');
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState<number | "">("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [publish, setPublish] = useState(true); // publier direct
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    // >>> ETAPE 7 : récupérer l'utilisateur et ajouter host_id
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr) {
-      alert(userErr.message);
+    // On récupère l'utilisateur pour mettre host_id/owner_id = auth.uid()
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
       setLoading(false);
-      return;
-    }
-    if (!user) {
-      alert('Session expirée — reconnecte-toi.');
-      setLoading(false);
-      return;
+      return alert("Non connecté.");
     }
 
     const payload = {
       title,
-      price: Number(price),
-      commune: commune || null,
+      price: price === "" ? null : Number(price),
       description: description || null,
-      tags: parseCSV(tags),
-      photos: parseCSV(photos),
-      is_published: false,
-      host_id: user.id, // <<< IMPORTANT pour passer les politiques RLS
+      image_url: imageUrl || null,
+      is_active: publish,
+      is_approved: publish, // si tu veux validation auto
+      host_id: user.id,
+      owner_id: user.id,
+      // Valeurs par défaut minimales pour affichage carte/listes
+      approx_lat: 16.237,
+      approx_lng: -61.533,
+      approx_radius_m: 3000
     };
 
-    const { error } = await supabase.from('annonces').insert(payload);
+    const { data, error } = await supabase
+      .from("listings")
+      .insert(payload)
+      .select("id")
+      .maybeSingle();
+
     setLoading(false);
-    if (error) alert(error.message);
-    else router.push('/espace-hote/annonces');
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    const id = data?.id as string;
+    if (id) router.push(`/espace-hote/annonces/${id}/edit`);
+    else router.push("/espace-hote/annonces");
   }
 
   return (
@@ -59,18 +65,23 @@ export default function NewListingClient() {
       <input className="w-full border rounded px-3 py-2" placeholder="Titre *"
         value={title} onChange={(e) => setTitle(e.target.value)} required />
       <input className="w-full border rounded px-3 py-2" placeholder="Prix par nuit (€) *" type="number" min={0}
-        value={price} onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : '')} required />
-      <input className="w-full border rounded px-3 py-2" placeholder="Commune"
-        value={commune} onChange={(e) => setCommune(e.target.value)} />
+        value={price} onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : "")} required />
       <textarea className="w-full border rounded px-3 py-2" placeholder="Description"
         value={description} onChange={(e) => setDescription(e.target.value)} />
-      <input className="w-full border rounded px-3 py-2" placeholder="Tags (séparés par des virgules)" 
-        value={tags} onChange={(e) => setTags(e.target.value)} />
-      <input className="w-full border rounded px-3 py-2" placeholder="Photos (URLs séparées par des virgules)"
-        value={photos} onChange={(e) => setPhotos(e.target.value)} />
-      <button className="rounded bg-black text-white px-4 py-2" disabled={loading}>
-        {loading ? 'Enregistrement…' : 'Enregistrer'}
-      </button>
+      <input className="w-full border rounded px-3 py-2" placeholder="Image principale (URL)"
+        value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
+        Publier immédiatement
+      </label>
+
+      <div className="flex gap-2">
+        <button className="rounded bg-black text-white px-4 py-2" disabled={loading}>
+          {loading ? "Création…" : "Créer l’annonce"}
+        </button>
+        <a href="/espace-hote/annonces" className="rounded border px-4 py-2">Annuler</a>
+      </div>
     </form>
   );
 }

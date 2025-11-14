@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from "@/lib/env";
-import LocationPickerPlain from "@/components/map/LocationPickerPlain";
+import LocationPickerPlain from "@/components/map/LocationPicker.client";
 const UploadImage = dynamic(() => import("@/components/upload/UploadImage"), { ssr: false });
 
 type SessionUser = { id: string; email?: string | null };

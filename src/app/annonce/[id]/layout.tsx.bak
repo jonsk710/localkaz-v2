@@ -1,0 +1,13 @@
+import type { ReactNode } from "react";
+import CalendarForRoute from "../../../components/calendar/CalendarForRoute"; // relatif
+
+export default function LayoutAnnonceId({ children }: { children: ReactNode }) {
+  return (
+    <div>
+      {children}
+      <div className="mt-6">
+        <CalendarForRoute />
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,3 @@
-import CalendarForRoute from "@/components/calendar/CalendarForRoute";
 import { redirect } from "next/navigation";
 
 export default function OldRoute({ params }: { params: { id: string } }) {
@@ -6,4 +5,3 @@ export default function OldRoute({ params }: { params: { id: string } }) {
 }
 
 {/* Calendrier des disponibilités */}
-<CalendarForRoute />

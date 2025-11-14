@@ -1,0 +1,62 @@
+## reprise-2025-10-25
+ M src/app/admin/layout.tsx
+ M src/app/admin/login/page.tsx
+ M src/app/admin/page.tsx
+ M src/app/annonce/[id]/page.tsx
+ M src/app/api/bookings/calendar/all/route.ts
+ M src/app/espace-hote/annonces/[id]/edit/_EditListingClient.tsx
+ M src/app/espace-hote/annonces/[id]/edit/page.tsx
+ M src/app/espace-hote/annonces/[id]/edit/page.tsx.bak
+ M src/app/espace-hote/annonces/_HostListings.tsx
+ M src/app/espace-hote/annonces/page.tsx
+ M src/app/espace-hote/login/page.tsx
+ M src/app/espace-hote/messages/[id]/page.tsx
+ M src/app/espace-hote/messages/page.tsx
+ M src/app/espace-hote/nouvelle/_NewListingClient.tsx
+ M src/app/espace-hote/nouvelle/page.tsx
+ M src/app/espace-hote/page.tsx
+ M src/app/logement/[id]/page.tsx
+ M src/app/logement/[id]/page.tsx.bak
+ M src/app/login/page.tsx
+ M src/components/calendar/CalendarForRoute.tsx
+ M src/components/calendar/ReadOnlyCalendar.tsx
+ M src/components/host/HostDashboard.tsx
+ M src/components/ui/MainNav.tsx
+?? .tmp
+?? backups/20251114-100842/
+?? page.tsx.bak
+?? src/app/admin/page.tsx.autosave.1763127636.bak
+?? src/app/admin/page.tsx.autosave.1763128477.bak
+?? src/app/admin/page.tsx.autosave.1763128540.bak
+?? src/app/admin/page.tsx.autosave.1763128861.bak
+?? src/app/annonce/[id]/calendrier/
+?? src/app/annonce/[id]/layout.tsx
+?? src/app/annonce/[id]/layout.tsx.bak
+?? src/app/annonce/[id]/page.tsx.bak
+?? src/app/annonce/[id]/page.tsx.bak.keep
+?? src/app/api/bookings/calendar/route.ts
+?? src/app/api/bookings/request/
+?? src/app/api/host/bookings/
+?? src/app/compte/
+?? src/app/espace-hote/.!74830!page.tsx
+?? src/app/espace-hote/annonces/[id]/edit/_EditListingClient.tsx.bak
+?? src/app/espace-hote/annonces/[id]/edit/page.tsx.bak.bak
+?? src/app/espace-hote/annonces/_HostListings.tsx.bak
+?? src/app/espace-hote/annonces/page.tsx.bak
+?? src/app/espace-hote/demandes/
+?? src/app/espace-hote/login/page.tsx.bak
+?? src/app/espace-hote/messages/[id]/page.tsx.bak
+?? src/app/espace-hote/messages/page.tsx.bak
+?? src/app/espace-hote/nouvelle/_NewListingClient.tsx.bak
+?? src/app/espace-hote/nouvelle/page.tsx.bak
+?? src/app/espace-hote/page.tsx.bak
+?? src/app/logout/
+?? src/components/admin/AdminDashboard.tsx
+?? src/components/auth/GuardAdmin.tsx
+?? src/components/auth/GuardHost.tsx
+?? src/components/booking/
+?? src/components/calendar/HostActionsForRoute.tsx
+?? src/components/calendar/HostCalendarActions.tsx
+?? src/components/host/HostDashboard.tsx.bak
+?? src/components/map/LocationPicker.client.tsx
+?? src/components/ui/MainNav.tsx.bak
