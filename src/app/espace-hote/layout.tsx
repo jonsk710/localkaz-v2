@@ -1,15 +1,47 @@
+"use client";
+
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import GuardHost from "@/components/auth/GuardHost";
+
+const TABS = [
+  { href: "/espace-hote", label: "Tableau de bord", exact: true },
+  { href: "/espace-hote/annonces", label: "Mes annonces" },
+  { href: "/espace-hote/nouvelle-annonce", label: "Nouvelle annonce" },
+  { href: "/espace-hote/messages", label: "Messages" },
+];
 
 export default function HostLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
   return (
-    <section className="space-y-4">
-      <nav className="flex gap-2 text-sm">
-        <a href="/espace-hote" className="px-3 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50">Tableau de bord</a>
-        <a href="/espace-hote/annonces" className="px-3 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50">Mes annonces</a>
-        <a href="/espace-hote/nouvelle" className="px-3 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50">Nouvelle annonce</a>
-        <a href="/espace-hote/messages" className="px-3 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">Messages</a>
-      </nav>
-      {children}
-    </section>
+    <GuardHost>
+      <div className="mx-auto max-w-6xl px-4 py-4">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {TABS.map((tab) => {
+            const isActive = tab.exact
+              ? pathname === tab.href
+              : pathname.startsWith(tab.href);
+
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`rounded-full border px-3 py-1 text-sm ${
+                  isActive
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-800 hover:bg-slate-50 border-slate-200"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        {children}
+      </div>
+    </GuardHost>
   );
 }
