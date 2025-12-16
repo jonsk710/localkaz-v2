@@ -1,0 +1,75 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+type Role = "admin" | "host" | "visitor" | "";
+
+export default function MainNav() {
+  const router = useRouter();
+  const supa = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<Role>("");
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supa.auth.getUser();
+      setUser(user ?? null);
+      setRole(String(user?.user_metadata?.role ?? "") as Role);
+      setReady(true);
+    })();
+    const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      setRole(String(u?.user_metadata?.role ?? "") as Role);
+      setReady(true);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const dest = role === "admin" ? "/admin" : role === "host" ? "/espace-hote" : "/compte";
+
+  async function onLogout() {
+    await supa.auth.signOut();
+    setUser(null);
+    setRole("");
+    router.push("/");
+  }
+
+  return (
+    <nav className="flex items-center justify-between py-3">
+      <a href="/" className="text-xl font-semibold">LocalKaz</a>
+
+      <div className="flex gap-2">
+        <a className="px-3 py-1.5 rounded-full border bg-white border-gray-200 hover:bg-gray-100" href="/">Annonces</a>
+        <a className="px-3 py-1.5 rounded-full border bg-white border-gray-200 hover:bg-gray-100" href="/carte">Carte</a>
+        <a className="px-3 py-1.5 rounded-full border bg-white border-gray-200 hover:bg-gray-100" href="/contact">Contact</a>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {!ready ? (
+          <span className="px-3 py-1.5 rounded-full border bg-white border-gray-200 text-gray-400">…</span>
+        ) : user ? (
+          <>
+            <Link href={dest} className="px-3 py-1.5 rounded-full border bg-white border-gray-200 hover:bg-gray-100">
+              Mon espace
+            </Link>
+            <button onClick={onLogout} className="px-3 py-1.5 rounded-full border bg-white border-gray-200 hover:bg-gray-100">
+              Se déconnecter
+            </button>
+          </>
+        ) : (
+          <Link href="/login" className="px-3 py-1.5 rounded-full border bg-white border-gray-200 hover:bg-gray-100">
+            Se connecter
+          </Link>
+        )}
+      </div>
+    </nav>
+  );
+}

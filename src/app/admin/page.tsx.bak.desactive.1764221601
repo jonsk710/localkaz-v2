@@ -15,7 +15,7 @@ type Annonce = {
   [key: string]: any;
 };
 
-type StatusFilter = "all" | "pending" | "active" | "inactive" | "trash";
+type StatusFilter = "all" | "pending" | "active" | "trash";
 
 export default function AdminPage() {
   const supabase = createClientComponentClient();
@@ -26,7 +26,7 @@ export default function AdminPage() {
   const [showTrashOnly, setShowTrashOnly] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Chargement initial
+  // Chargement initial des annonces
   useEffect(() => {
     const fetchAnnonces = async () => {
       setLoading(true);
@@ -39,12 +39,7 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erreur chargement annonces admin:", error);
-        // 👉 ICI : on affiche le vrai message Supabase pour comprendre ce qui bloque
-        setError(
-          `Impossible de charger les annonces. (${error.code ?? "?"}: ${
-            error.message
-          })`
-        );
+        setError("Impossible de charger les annonces.");
         setAnnonces([]);
       } else {
         setAnnonces((data as any) ?? []);
@@ -56,6 +51,7 @@ export default function AdminPage() {
     fetchAnnonces();
   }, [supabase]);
 
+  // Helpers status
   const normalizeStatus = (a: Annonce): string => {
     const raw =
       a.status ??
@@ -78,18 +74,9 @@ export default function AdminPage() {
     );
   };
 
-  const isInactive = (a: Annonce): boolean => {
-    const s = normalizeStatus(a);
-    return (
-      s === "inactive" ||
-      s === "inactif" ||
-      s === "désactivé" ||
-      s === "desactive"
-    );
-  };
-
   const isPending = (a: Annonce): boolean => {
     const s = normalizeStatus(a);
+    // Statut vide = à approuver
     if (!s) return true;
     return (
       s.includes("pending") ||
@@ -101,63 +88,79 @@ export default function AdminPage() {
 
   const isActive = (a: Annonce): boolean => {
     const s = normalizeStatus(a);
-    if (isInactive(a)) return false;
     return (
-      s === "active" ||
-      s === "actif" ||
-      s === "published" ||
-      s === "en_ligne" ||
-      s === "valide"
+      s.includes("active") ||
+      s.includes("actif") ||
+      s.includes("published") ||
+      s.includes("en_ligne") ||
+      s.includes("valide")
     );
   };
 
-  const filteredAnnonces = useMemo(
-    () =>
-      annonces.filter((a) => {
-        if (showTrashOnly) return isTrash(a);
+  // Filtrage visuel
+  const filteredAnnonces = useMemo(() => {
+    return annonces.filter((a) => {
+      if (showTrashOnly) return isTrash(a);
 
-        if (statusFilter === "pending") return isPending(a) && !isTrash(a);
-        if (statusFilter === "active") return isActive(a) && !isTrash(a);
-        if (statusFilter === "inactive") return isInactive(a) && !isTrash(a);
-        if (statusFilter === "trash") return isTrash(a);
+      if (statusFilter === "pending") {
+        return isPending(a) && !isTrash(a);
+      }
 
-        return true;
-      }),
-    [annonces, statusFilter, showTrashOnly]
-  );
+      if (statusFilter === "active") {
+        return isActive(a) && !isTrash(a);
+      }
 
+      if (statusFilter === "trash") {
+        return isTrash(a);
+      }
+
+      return true; // "all"
+    });
+  }, [annonces, statusFilter, showTrashOnly]);
+
+  // Compteurs
   const countBy = useMemo(() => {
     let pending = 0;
     let active = 0;
-    let inactive = 0;
     let trash = 0;
 
     for (const a of annonces) {
-      if (isTrash(a)) trash++;
-      else if (isInactive(a)) inactive++;
-      else if (isPending(a)) pending++;
-      else if (isActive(a)) active++;
+      if (isTrash(a)) {
+        trash++;
+      } else if (isPending(a)) {
+        pending++;
+      } else if (isActive(a)) {
+        active++;
+      }
     }
 
-    return { total: annonces.length, pending, active, inactive, trash };
+    return {
+      total: annonces.length,
+      pending,
+      active,
+      trash,
+    };
   }, [annonces]);
 
   const labelStatus = (a: Annonce): string => {
     if (isTrash(a)) return "Corbeille";
-    if (isInactive(a)) return "Désactivée";
     if (isPending(a)) return "À approuver";
     if (isActive(a)) return "Actif";
     const s = normalizeStatus(a);
     return s || "Inconnu";
   };
 
-  const displayTitle = (a: Annonce): string =>
-    a.titre ||
-    a.title ||
-    (a as any)?.titre_annonce ||
-    (a as any)?.nom ||
-    `Annonce #${a.id}`;
+  const displayTitle = (a: Annonce): string => {
+    return (
+      a.titre ||
+      a.title ||
+      (a as any)?.titre_annonce ||
+      (a as any)?.nom ||
+      `Annonce #${a.id}`
+    );
+  };
 
+  // === Actions admin ===
   const applyLocalUpdate = (
     id: string,
     newStatus: string,
@@ -198,11 +201,7 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erreur maj annonce:", error);
-        setError(
-          `Impossible de mettre à jour l'annonce. (${error.code ?? "?"}: ${
-            error.message
-          })`
-        );
+        setError("Impossible de mettre à jour l'annonce.");
       } else {
         applyLocalUpdate(id, newStatus, opts?.isDeleted ?? false);
       }
@@ -213,13 +212,11 @@ export default function AdminPage() {
 
   const handleApprove = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
+
   const handleMoveToTrash = (id: string) =>
     updateAnnonceStatus(id, "trash", { isDeleted: true });
+
   const handleRestoreFromTrash = (id: string) =>
-    updateAnnonceStatus(id, "active", { isDeleted: false });
-  const handleDeactivate = (id: string) =>
-    updateAnnonceStatus(id, "inactive", { isDeleted: false });
-  const handleReactivate = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
 
   return (
@@ -228,9 +225,10 @@ export default function AdminPage() {
         Admin — Annonces
       </h1>
       <p className="mb-6 text-sm text-slate-600">
-        Approuver / Activer / Désactiver / Corbeille.
+        Approuver / Activer / Corbeille.
       </p>
 
+      {/* Barre de filtres / stats */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <button
@@ -268,17 +266,6 @@ export default function AdminPage() {
           </button>
           <button
             type="button"
-            onClick={() => setStatusFilter("inactive")}
-            className={`rounded-full px-3 py-1 ${
-              statusFilter === "inactive"
-                ? "bg-slate-700 text-white"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            Désactivées ({countBy.inactive})
-          </button>
-          <button
-            type="button"
             onClick={() => setStatusFilter("trash")}
             className={`rounded-full px-3 py-1 ${
               statusFilter === "trash"
@@ -307,6 +294,7 @@ export default function AdminPage() {
         </p>
       )}
 
+      {/* Contenu */}
       {loading ? (
         <p className="text-sm text-slate-500">Chargement des annonces…</p>
       ) : filteredAnnonces.length === 0 ? (
@@ -326,7 +314,6 @@ export default function AdminPage() {
               {filteredAnnonces.map((a) => {
                 const pending = isPending(a) && !isTrash(a);
                 const active = isActive(a) && !isTrash(a);
-                const inactive = isInactive(a) && !isTrash(a);
                 const trash = isTrash(a);
                 const busy = actionLoadingId === a.id;
 
@@ -359,7 +346,7 @@ export default function AdminPage() {
                           </>
                         ) : (
                           <>
-                            {(pending || (!active && !inactive)) && (
+                            {(pending || !active) && (
                               <button
                                 type="button"
                                 disabled={busy}
@@ -367,26 +354,6 @@ export default function AdminPage() {
                                 className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                               >
                                 {busy ? "..." : "Approuver / Activer"}
-                              </button>
-                            )}
-                            {active && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => handleDeactivate(a.id)}
-                                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200 disabled:opacity-60"
-                              >
-                                {busy ? "..." : "Désactiver"}
-                              </button>
-                            )}
-                            {inactive && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => handleReactivate(a.id)}
-                                className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                              >
-                                {busy ? "..." : "Réactiver"}
                               </button>
                             )}
                             <button

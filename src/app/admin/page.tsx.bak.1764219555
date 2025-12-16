@@ -1,0 +1,32 @@
+export default function AdminPage() {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <h1 className="mb-1 text-xl font-semibold text-slate-900">
+        Admin — Annonces
+      </h1>
+      <p className="mb-6 text-sm text-slate-600">
+        Approuver / Activer / Corbeille.
+      </p>
+
+      <div className="flex items-center justify-between border-b pb-4 mb-4">
+        <p className="text-sm text-slate-700">
+          Aucune annonce à modérer pour le moment.
+        </p>
+        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            disabled
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          Voir seulement la corbeille
+        </label>
+      </div>
+
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+        Le tableau de bord admin est prêt. 
+        <br />
+        On pourra ensuite y afficher la liste des annonces à valider quand tu voudras.
+      </div>
+    </div>
+  );
+}

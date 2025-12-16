@@ -1,0 +1,70 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+export default function LoginPage(){
+  const router = useRouter();
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState<string|null>(null);
+
+  async function routeAfterLogin(){
+    const { data:{ user } } = await supabase.auth.getUser();
+    if(!user){ return; }
+    const raw = (user?.user_metadata?.role ?? "").toString().toLowerCase();
+    if(raw==="admin"){ router.replace("/admin"); return; }
+    if(raw==="host"){ router.replace("/espace-hote"); return; }
+
+    // Fallback 1 : profil (si dispo)
+    try{
+      const { data: prof } = await supabase.from("profiles").select("role,is_admin").eq("id", user.id).maybeSingle();
+      const vrole = (prof?.role ?? "").toString().toLowerCase();
+      const isAdmin = !!(prof as any)?.is_admin;
+      if(isAdmin || vrole==="admin"){ router.replace("/admin"); return; }
+      if(vrole==="host"){ router.replace("/espace-hote"); return; }
+    }catch{}
+
+    // Fallback 2 : est-ce un hôte (>=1 annonce/listing) ?
+    try{
+      const { count } = await supabase.from("listings").select("id", { head:true, count:"exact" }).eq("host_id", user.id);
+      if((count??0)>0){ router.replace("/espace-hote"); return; }
+    }catch{}
+
+    // Par défaut: visiteur
+    router.replace("/");
+  }
+
+  useEffect(()=>{
+    // si déjà connecté, route immédiatement
+    supabase.auth.getUser().then(({data:{user}})=>{ if(user){ routeAfterLogin(); }});
+    // suivre les changements de session pour router immédiatement
+    const { data: sub } = supabase.auth.onAuthStateChange((_e)=>{ routeAfterLogin(); });
+    return ()=>{ sub.subscription.unsubscribe(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  async function onSubmit(e:React.FormEvent){
+    e.preventDefault();
+    setLoading(true); setErr(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error){ setErr(error.message); setLoading(false); return; }
+    await routeAfterLogin();
+    setLoading(false);
+  }
+
+  return (
+    <main className="max-w-md mx-auto px-4 py-12 space-y-4">
+      <h1 className="text-2xl font-bold">Se connecter</h1>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <input className="w-full border rounded px-3 py-2" type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required />
+        <input className="w-full border rounded px-3 py-2" type="password" placeholder="Mot de passe" value={pass} onChange={e=>setPass(e.target.value)} required />
+        {err && <p className="text-red-600 text-sm">Erreur: {err}</p>}
+        <button disabled={loading} className="rounded bg-black text-white px-4 py-2">{loading?"Connexion…":"Se connecter"}</button>
+      </form>
+    </main>
+  );
+}

@@ -1,0 +1,288 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+type Annonce = {
+  id: string;
+  titre?: string;
+  title?: string;
+  statut?: string;
+  status?: string;
+  etat?: string;
+  is_deleted?: boolean;
+  created_at?: string;
+  [key: string]: any;
+};
+
+type StatusFilter = "all" | "pending" | "active" | "trash";
+
+export default function AdminPage() {
+  const supabase = createClientComponentClient();
+  const [annonces, setAnnonces] = useState<Annonce[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [showTrashOnly, setShowTrashOnly] = useState(false);
+
+  useEffect(() => {
+    const fetchAnnonces = async () => {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from("annonces")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Erreur chargement annonces admin:", error);
+        setError("Impossible de charger les annonces.");
+        setAnnonces([]);
+      } else {
+        setAnnonces((data as any) ?? []);
+      }
+
+      setLoading(false);
+    };
+
+    fetchAnnonces();
+  }, [supabase]);
+
+  const normalizeStatus = (a: Annonce): string => {
+    const raw =
+      a.status ??
+      a.statut ??
+      a.etat ??
+      (a as any)?.state ??
+      (a as any)?.statut_annonce ??
+      "";
+    return String(raw).toLowerCase();
+  };
+
+  const isTrash = (a: Annonce): boolean => {
+    const s = normalizeStatus(a);
+    if (a.is_deleted === true) return true;
+    return (
+      s.includes("trash") ||
+      s.includes("corbeille") ||
+      s.includes("deleted") ||
+      s.includes("archive")
+    );
+  };
+
+  const filteredAnnonces = useMemo(() => {
+    return annonces.filter((a) => {
+      const s = normalizeStatus(a);
+
+      if (showTrashOnly) return isTrash(a);
+
+      if (statusFilter === "pending") {
+        return (
+          s.includes("pending") ||
+          s.includes("attente") ||
+          s.includes("draft") ||
+          s.includes("brouillon")
+        );
+      }
+
+      if (statusFilter === "active") {
+        return (
+          s.includes("active") ||
+          s.includes("actif") ||
+          s.includes("published") ||
+          s.includes("en_ligne") ||
+          s.includes("valide")
+        );
+      }
+
+      if (statusFilter === "trash") {
+        return isTrash(a);
+      }
+
+      return true; // "all"
+    });
+  }, [annonces, statusFilter, showTrashOnly]);
+
+  const countBy = useMemo(() => {
+    let pending = 0;
+    let active = 0;
+    let trash = 0;
+
+    for (const a of annonces) {
+      const s = normalizeStatus(a);
+      if (isTrash(a)) {
+        trash++;
+      } else if (
+        s.includes("pending") ||
+        s.includes("attente") ||
+        s.includes("draft") ||
+        s.includes("brouillon")
+      ) {
+        pending++;
+      } else if (
+        s.includes("active") ||
+        s.includes("actif") ||
+        s.includes("published") ||
+        s.includes("en_ligne") ||
+        s.includes("valide")
+      ) {
+        active++;
+      }
+    }
+
+    return {
+      total: annonces.length,
+      pending,
+      active,
+      trash,
+    };
+  }, [annonces]);
+
+  const labelStatus = (a: Annonce): string => {
+    if (isTrash(a)) return "Corbeille";
+    const s = normalizeStatus(a);
+    if (
+      s.includes("pending") ||
+      s.includes("attente") ||
+      s.includes("draft") ||
+      s.includes("brouillon")
+    ) {
+      return "À approuver";
+    }
+    if (
+      s.includes("active") ||
+      s.includes("actif") ||
+      s.includes("published") ||
+      s.includes("en_ligne") ||
+      s.includes("valide")
+    ) {
+      return "Actif";
+    }
+    return s || "Inconnu";
+  };
+
+  const displayTitle = (a: Annonce): string => {
+    return (
+      a.titre ||
+      a.title ||
+      (a as any)?.titre_annonce ||
+      (a as any)?.nom ||
+      `Annonce #${a.id}`
+    );
+  };
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <h1 className="mb-1 text-xl font-semibold text-slate-900">
+        Admin — Annonces
+      </h1>
+      <p className="mb-6 text-sm text-slate-600">
+        Approuver / Activer / Corbeille.
+      </p>
+
+      {/* Barre de filtres / stats */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setStatusFilter("all")}
+            className={`rounded-full px-3 py-1 ${
+              statusFilter === "all"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            Toutes ({countBy.total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("pending")}
+            className={`rounded-full px-3 py-1 ${
+              statusFilter === "pending"
+                ? "bg-amber-600 text-white"
+                : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+            }`}
+          >
+            À approuver ({countBy.pending})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("active")}
+            className={`rounded-full px-3 py-1 ${
+              statusFilter === "active"
+                ? "bg-emerald-600 text-white"
+                : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+            }`}
+          >
+            Actives ({countBy.active})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("trash")}
+            className={`rounded-full px-3 py-1 ${
+              statusFilter === "trash"
+                ? "bg-rose-600 text-white"
+                : "bg-rose-50 text-rose-800 hover:bg-rose-100"
+            }`}
+          >
+            Corbeille ({countBy.trash})
+          </button>
+        </div>
+
+        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={showTrashOnly}
+            onChange={(e) => setShowTrashOnly(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          Voir seulement la corbeille
+        </label>
+      </div>
+
+      {/* Contenu */}
+      {loading ? (
+        <p className="text-sm text-slate-500">Chargement des annonces…</p>
+      ) : error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : filteredAnnonces.length === 0 ? (
+        <p className="text-sm text-slate-600">Aucune annonce.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border bg-white">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Titre</th>
+                <th className="px-4 py-3">Statut</th>
+                <th className="px-4 py-3">Créée le</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAnnonces.map((a) => (
+                <tr key={a.id} className="border-t last:border-b-0">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-900">
+                      {displayTitle(a)}
+                    </div>
+                    <div className="text-xs text-slate-500">ID: {a.id}</div>
+                  </td>
+                  <td className="px-4 py-3 text-sm">{labelStatus(a)}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {a.created_at
+                      ? new Date(a.created_at).toLocaleDateString("fr-FR")
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-slate-500">
+                    (Boutons à ajouter : approuver / activer / corbeille)
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

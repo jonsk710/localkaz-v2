@@ -39,12 +39,7 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erreur chargement annonces admin:", error);
-        // 👉 ICI : on affiche le vrai message Supabase pour comprendre ce qui bloque
-        setError(
-          `Impossible de charger les annonces. (${error.code ?? "?"}: ${
-            error.message
-          })`
-        );
+        setError("Impossible de charger les annonces.");
         setAnnonces([]);
       } else {
         setAnnonces((data as any) ?? []);
@@ -56,6 +51,7 @@ export default function AdminPage() {
     fetchAnnonces();
   }, [supabase]);
 
+  // Helpers de statut
   const normalizeStatus = (a: Annonce): string => {
     const raw =
       a.status ??
@@ -90,7 +86,7 @@ export default function AdminPage() {
 
   const isPending = (a: Annonce): boolean => {
     const s = normalizeStatus(a);
-    if (!s) return true;
+    if (!s) return true; // statut vide = à approuver
     return (
       s.includes("pending") ||
       s.includes("attente") ||
@@ -101,7 +97,7 @@ export default function AdminPage() {
 
   const isActive = (a: Annonce): boolean => {
     const s = normalizeStatus(a);
-    if (isInactive(a)) return false;
+    if (isInactive(a)) return false; // une inactive ne peut PAS être active
     return (
       s === "active" ||
       s === "actif" ||
@@ -111,21 +107,33 @@ export default function AdminPage() {
     );
   };
 
-  const filteredAnnonces = useMemo(
-    () =>
-      annonces.filter((a) => {
-        if (showTrashOnly) return isTrash(a);
+  // Filtrage visuel (avec onglet Désactivées séparé)
+  const filteredAnnonces = useMemo(() => {
+    return annonces.filter((a) => {
+      if (showTrashOnly) return isTrash(a);
 
-        if (statusFilter === "pending") return isPending(a) && !isTrash(a);
-        if (statusFilter === "active") return isActive(a) && !isTrash(a);
-        if (statusFilter === "inactive") return isInactive(a) && !isTrash(a);
-        if (statusFilter === "trash") return isTrash(a);
+      if (statusFilter === "pending") {
+        return isPending(a) && !isTrash(a);
+      }
 
-        return true;
-      }),
-    [annonces, statusFilter, showTrashOnly]
-  );
+      if (statusFilter === "active") {
+        return isActive(a) && !isTrash(a);
+      }
 
+      if (statusFilter === "inactive") {
+        return isInactive(a) && !isTrash(a);
+      }
+
+      if (statusFilter === "trash") {
+        return isTrash(a);
+      }
+
+      // "all"
+      return true;
+    });
+  }, [annonces, statusFilter, showTrashOnly]);
+
+  // Compteurs
   const countBy = useMemo(() => {
     let pending = 0;
     let active = 0;
@@ -133,13 +141,24 @@ export default function AdminPage() {
     let trash = 0;
 
     for (const a of annonces) {
-      if (isTrash(a)) trash++;
-      else if (isInactive(a)) inactive++;
-      else if (isPending(a)) pending++;
-      else if (isActive(a)) active++;
+      if (isTrash(a)) {
+        trash++;
+      } else if (isInactive(a)) {
+        inactive++;
+      } else if (isPending(a)) {
+        pending++;
+      } else if (isActive(a)) {
+        active++;
+      }
     }
 
-    return { total: annonces.length, pending, active, inactive, trash };
+    return {
+      total: annonces.length,
+      pending,
+      active,
+      inactive,
+      trash,
+    };
   }, [annonces]);
 
   const labelStatus = (a: Annonce): string => {
@@ -151,13 +170,17 @@ export default function AdminPage() {
     return s || "Inconnu";
   };
 
-  const displayTitle = (a: Annonce): string =>
-    a.titre ||
-    a.title ||
-    (a as any)?.titre_annonce ||
-    (a as any)?.nom ||
-    `Annonce #${a.id}`;
+  const displayTitle = (a: Annonce): string => {
+    return (
+      a.titre ||
+      a.title ||
+      (a as any)?.titre_annonce ||
+      (a as any)?.nom ||
+      `Annonce #${a.id}`
+    );
+  };
 
+  // === Actions admin (inchangées, on ajoute juste désactiver/réactiver) ===
   const applyLocalUpdate = (
     id: string,
     newStatus: string,
@@ -198,11 +221,7 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erreur maj annonce:", error);
-        setError(
-          `Impossible de mettre à jour l'annonce. (${error.code ?? "?"}: ${
-            error.message
-          })`
-        );
+        setError("Impossible de mettre à jour l'annonce.");
       } else {
         applyLocalUpdate(id, newStatus, opts?.isDeleted ?? false);
       }
@@ -213,12 +232,16 @@ export default function AdminPage() {
 
   const handleApprove = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
+
   const handleMoveToTrash = (id: string) =>
     updateAnnonceStatus(id, "trash", { isDeleted: true });
+
   const handleRestoreFromTrash = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
+
   const handleDeactivate = (id: string) =>
     updateAnnonceStatus(id, "inactive", { isDeleted: false });
+
   const handleReactivate = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
 
@@ -231,6 +254,7 @@ export default function AdminPage() {
         Approuver / Activer / Désactiver / Corbeille.
       </p>
 
+      {/* Filtres avec onglet "Désactivées" */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <button

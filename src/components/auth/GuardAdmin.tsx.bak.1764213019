@@ -1,0 +1,54 @@
+"use client";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+export default function GuardAdmin({ children }: { children: React.ReactNode }) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const [ok, setOk] = useState<boolean | null>(null);
+
+  async function check() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setOk(false); return; }
+
+    // 1) user_metadata.role
+    const metaRole = String(user.user_metadata?.role ?? "").toLowerCase();
+    if (metaRole === "admin") { setOk(true); return; }
+
+    // 2) profiles.is_admin / role
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("is_admin, role")
+        .eq("id", user.id)
+        .maybeSingle();
+      const pRole = String(prof?.role ?? "").toLowerCase();
+      if (prof?.is_admin || pRole === "admin") { setOk(true); return; }
+    } catch {}
+
+    // 3) Allowlist mail (sécurité dev)
+    const email = String((user as any)?.email ?? "").toLowerCase();
+    const allow = ["test-admin@localkaz.test"];
+    if (allow.includes(email)) { setOk(true); return; }
+
+    setOk(false);
+  }
+
+  useEffect(() => {
+    check();
+    const sub = supabase.auth.onAuthStateChange((_e) => { check(); });
+    return () => { sub.data?.subscription?.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (ok === null) return null;
+  if (ok) return <>{children}</>;
+  return (
+    <div className="max-w-3xl mx-auto py-16 text-center space-y-3">
+      <h1 className="text-2xl font-bold">Accès réservé à l’administrateur</h1>
+      <a className="inline-block px-4 py-2 rounded-2xl bg-amber-500 text-white" href="/login">Se connecter</a>
+    </div>
+  );
+}

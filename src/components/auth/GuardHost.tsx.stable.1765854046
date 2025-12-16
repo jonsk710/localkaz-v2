@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-type AuthUser = {
+type SimpleUser = {
   id: string;
   email?: string;
   user_metadata?: {
@@ -17,42 +17,55 @@ type Props = {
   children: ReactNode;
 };
 
-const ADMIN_EMAILS = ["test-admin@localkaz.test"];
+// Ici on ne met QUE les vrais comptes hôtes de test
+const DEV_HOST_ALLOWLIST = ["test-host@localkaz.test"];
 
-export default function GuardAdmin({ children }: Props) {
+export default function GuardHost({ children }: Props) {
   const supabase = createClientComponentClient();
   const router = useRouter();
-
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<SimpleUser | null>(null);
+  const [isHost, setIsHost] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
+
+    const computeIsHost = (u: SimpleUser | null): boolean => {
+      if (!u) return false;
+      const email = u.email?.toLowerCase() ?? "";
+      const role = u.user_metadata?.role;
+
+      // Règle : hôte = role === "host"
+      // ou email dans la allowlist de vrais comptes hôtes
+      if (role === "host") return true;
+      if (DEV_HOST_ALLOWLIST.includes(email)) return true;
+      return false;
+    };
 
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!isMounted) return;
-      setUser((data as any)?.user ?? null);
+      if (cancelled) return;
+      const u = (data as any)?.user ?? null;
+      setUser(u);
+      setIsHost(computeIsHost(u));
       setLoading(false);
     };
 
     loadUser();
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
-      setUser((session as any)?.user ?? null);
+      if (cancelled) return;
+      const u = (session as any)?.user ?? null;
+      setUser(u);
+      setIsHost(computeIsHost(u));
       setLoading(false);
     });
 
     return () => {
-      isMounted = false;
+      cancelled = true;
       (data as any)?.subscription?.unsubscribe();
     };
   }, [supabase]);
-
-  const email = user?.email?.toLowerCase() ?? "";
-  const role = user?.user_metadata?.role;
-  const isAdmin = !!user && (role === "admin" || ADMIN_EMAILS.includes(email));
 
   if (loading) {
     return (
@@ -62,16 +75,16 @@ export default function GuardAdmin({ children }: Props) {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user || !isHost) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center px-4">
         <div className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm">
           <h1 className="mb-2 text-lg font-semibold text-slate-900">
-            Accès réservé à l’administrateur
+            Accès réservé aux hôtes
           </h1>
           <p className="mb-4 text-sm text-slate-600">
-            Tu dois être connecté avec un compte administrateur pour accéder à
-            ce tableau de bord.
+            Tu dois être connecté avec un compte hôte pour accéder à cet
+            espace.
           </p>
           <button
             type="button"

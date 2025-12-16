@@ -15,7 +15,7 @@ type Annonce = {
   [key: string]: any;
 };
 
-type StatusFilter = "all" | "pending" | "active" | "inactive" | "trash";
+type StatusFilter = "all" | "pending" | "active" | "trash";
 
 export default function AdminPage() {
   const supabase = createClientComponentClient();
@@ -39,12 +39,7 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erreur chargement annonces admin:", error);
-        // 👉 ICI : on affiche le vrai message Supabase pour comprendre ce qui bloque
-        setError(
-          `Impossible de charger les annonces. (${error.code ?? "?"}: ${
-            error.message
-          })`
-        );
+        setError("Impossible de charger les annonces.");
         setAnnonces([]);
       } else {
         setAnnonces((data as any) ?? []);
@@ -56,6 +51,7 @@ export default function AdminPage() {
     fetchAnnonces();
   }, [supabase]);
 
+  // Helpers de statut
   const normalizeStatus = (a: Annonce): string => {
     const raw =
       a.status ??
@@ -78,19 +74,9 @@ export default function AdminPage() {
     );
   };
 
-  const isInactive = (a: Annonce): boolean => {
-    const s = normalizeStatus(a);
-    return (
-      s === "inactive" ||
-      s === "inactif" ||
-      s === "désactivé" ||
-      s === "desactive"
-    );
-  };
-
   const isPending = (a: Annonce): boolean => {
     const s = normalizeStatus(a);
-    if (!s) return true;
+    if (!s) return true; // statut vide = à approuver
     return (
       s.includes("pending") ||
       s.includes("attente") ||
@@ -101,45 +87,69 @@ export default function AdminPage() {
 
   const isActive = (a: Annonce): boolean => {
     const s = normalizeStatus(a);
-    if (isInactive(a)) return false;
     return (
-      s === "active" ||
-      s === "actif" ||
-      s === "published" ||
-      s === "en_ligne" ||
-      s === "valide"
+      s.includes("active") ||
+      s.includes("actif") ||
+      s.includes("published") ||
+      s.includes("en_ligne") ||
+      s.includes("valide")
     );
   };
 
-  const filteredAnnonces = useMemo(
-    () =>
-      annonces.filter((a) => {
-        if (showTrashOnly) return isTrash(a);
+  const isInactive = (a: Annonce): boolean => {
+    const s = normalizeStatus(a);
+    return (
+      s.includes("inactive") ||
+      s.includes("inactif") ||
+      s.includes("désactivé") ||
+      s.includes("desactive")
+    );
+  };
 
-        if (statusFilter === "pending") return isPending(a) && !isTrash(a);
-        if (statusFilter === "active") return isActive(a) && !isTrash(a);
-        if (statusFilter === "inactive") return isInactive(a) && !isTrash(a);
-        if (statusFilter === "trash") return isTrash(a);
+  // Filtrage visuel simple (on ne rajoute pas d’onglet spécial désactivées pour ne rien casser)
+  const filteredAnnonces = useMemo(() => {
+    return annonces.filter((a) => {
+      if (showTrashOnly) return isTrash(a);
 
-        return true;
-      }),
-    [annonces, statusFilter, showTrashOnly]
-  );
+      if (statusFilter === "pending") {
+        return isPending(a) && !isTrash(a);
+      }
 
+      if (statusFilter === "active") {
+        return isActive(a) && !isTrash(a);
+      }
+
+      if (statusFilter === "trash") {
+        return isTrash(a);
+      }
+
+      // "all"
+      return true;
+    });
+  }, [annonces, statusFilter, showTrashOnly]);
+
+  // Compteurs (comme avant, on ne complique pas)
   const countBy = useMemo(() => {
     let pending = 0;
     let active = 0;
-    let inactive = 0;
     let trash = 0;
 
     for (const a of annonces) {
-      if (isTrash(a)) trash++;
-      else if (isInactive(a)) inactive++;
-      else if (isPending(a)) pending++;
-      else if (isActive(a)) active++;
+      if (isTrash(a)) {
+        trash++;
+      } else if (isPending(a)) {
+        pending++;
+      } else if (isActive(a)) {
+        active++;
+      }
     }
 
-    return { total: annonces.length, pending, active, inactive, trash };
+    return {
+      total: annonces.length,
+      pending,
+      active,
+      trash,
+    };
   }, [annonces]);
 
   const labelStatus = (a: Annonce): string => {
@@ -151,13 +161,17 @@ export default function AdminPage() {
     return s || "Inconnu";
   };
 
-  const displayTitle = (a: Annonce): string =>
-    a.titre ||
-    a.title ||
-    (a as any)?.titre_annonce ||
-    (a as any)?.nom ||
-    `Annonce #${a.id}`;
+  const displayTitle = (a: Annonce): string => {
+    return (
+      a.titre ||
+      a.title ||
+      (a as any)?.titre_annonce ||
+      (a as any)?.nom ||
+      `Annonce #${a.id}`
+    );
+  };
 
+  // === Actions admin (même logique qu’avant) ===
   const applyLocalUpdate = (
     id: string,
     newStatus: string,
@@ -198,11 +212,7 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erreur maj annonce:", error);
-        setError(
-          `Impossible de mettre à jour l'annonce. (${error.code ?? "?"}: ${
-            error.message
-          })`
-        );
+        setError("Impossible de mettre à jour l'annonce.");
       } else {
         applyLocalUpdate(id, newStatus, opts?.isDeleted ?? false);
       }
@@ -213,12 +223,16 @@ export default function AdminPage() {
 
   const handleApprove = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
+
   const handleMoveToTrash = (id: string) =>
     updateAnnonceStatus(id, "trash", { isDeleted: true });
+
   const handleRestoreFromTrash = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
+
   const handleDeactivate = (id: string) =>
     updateAnnonceStatus(id, "inactive", { isDeleted: false });
+
   const handleReactivate = (id: string) =>
     updateAnnonceStatus(id, "active", { isDeleted: false });
 
@@ -231,6 +245,7 @@ export default function AdminPage() {
         Approuver / Activer / Désactiver / Corbeille.
       </p>
 
+      {/* Filtres comme avant */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <button
@@ -265,17 +280,6 @@ export default function AdminPage() {
             }`}
           >
             Actives ({countBy.active})
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter("inactive")}
-            className={`rounded-full px-3 py-1 ${
-              statusFilter === "inactive"
-                ? "bg-slate-700 text-white"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            Désactivées ({countBy.inactive})
           </button>
           <button
             type="button"

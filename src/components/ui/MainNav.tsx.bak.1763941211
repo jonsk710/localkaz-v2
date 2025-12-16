@@ -8,13 +8,8 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 type AuthUser = {
   id: string;
   email?: string;
-  user_metadata?: {
-    role?: string;
-    [key: string]: any;
-  };
+  user_metadata?: Record<string, any>;
 };
-
-const ADMIN_EMAILS = ["test-admin@localkaz.test"];
 
 export default function MainNav() {
   const supabase = createClientComponentClient();
@@ -24,27 +19,13 @@ export default function MainNav() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!isMounted) return;
       setUser((data as any)?.user ?? null);
       setLoading(false);
     };
 
     loadUser();
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
-      setUser((session as any)?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      (data as any)?.subscription?.unsubscribe();
-    };
   }, [supabase]);
 
   const handleLogin = () => {
@@ -62,13 +43,11 @@ export default function MainNav() {
     }
   };
 
-  const role = user?.user_metadata?.role;
-  const email = user?.email?.toLowerCase() ?? "";
-  const isAdmin = !!user && (role === "admin" || ADMIN_EMAILS.includes(email));
+  const role = (user?.user_metadata as any)?.role as string | undefined;
 
   let dashboardHref: string | null = null;
   if (user) {
-    if (isAdmin) {
+    if (role === "admin") {
       dashboardHref = "/admin";
     } else if (role === "host") {
       dashboardHref = "/espace-hote";
